@@ -1,7 +1,37 @@
+# main.py
 from fastapi import FastAPI
+from backend.models import nodes, tasks, task_counter
+from backend.simulator import start_simulator
+from algorithms.scheduler import execute_schedule
+import uvicorn
 
 app = FastAPI()
 
-@app.get("/")
-def hello():
-    return {"message": "太牛了，记事本也能写智慧城市后端！"}
+# 启动模拟器
+start_simulator()
+
+@app.get("/nodes")
+def get_all_nodes():
+    return {"nodes": nodes}
+
+@app.get("/tasks")
+def get_all_tasks():
+    return {"pending_tasks": len(tasks), "tasks": tasks}
+
+@app.post("/task")
+def create_new_task(cpu_need: float):
+    new_task = {
+        "id": task_counter["current"],
+        "cpu_need": cpu_need,
+        "status": "waiting"
+    }
+    tasks.append(new_task)
+    task_counter["current"] += 1
+    return {"message": "任务创建成功", "task": new_task}
+
+@app.post("/schedule")
+def trigger_schedule(strategy: str = "least_load"):
+    return execute_schedule(strategy)
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8000)
