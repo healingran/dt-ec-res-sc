@@ -1,5 +1,6 @@
 # main.py
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from backend.models import nodes, tasks, task_counter
 from backend.simulator import start_simulator
 from algorithms.scheduler import execute_schedule
@@ -7,6 +8,22 @@ from algorithms.predictor import get_predictions
 import uvicorn
 
 app = FastAPI()
+
+# 允许本地前端页面（8080 等端口）跨域访问 API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:8080",
+        "http://localhost:8080",
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+        "http://127.0.0.1:3000",
+        "http://localhost:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # 启动模拟器
 start_simulator()
