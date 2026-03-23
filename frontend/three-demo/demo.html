@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>城市可视化组件测试</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Microsoft YaHei', sans-serif; }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            z-index: 100;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #3a6b3a;
+            color: white;
+        }
+        button:hover { background-color: #2c4f2c; }
+    </style>
+    <!-- 添加 import map，解决 three 模块解析 -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="city-container" style="width:100vw; height:100vh;"></div>
+    <div id="controls">
+        <button id="btn-base">基站变红</button>
+        <button id="btn-camera">摄像头变绿</button>
+        <button id="btn-rsu">路侧单元变蓝</button>
+        <button id="btn-reset">重置颜色</button>
+        <button id="btn-highlight">高亮基站</button>
+        <button id="btn-clear">清除高亮</button>
+    </div>
+
+    <script type="module">
+        import { CityVisualizer } from './cityVisualizer.js';
+        // 实例化组件（容器 ID）
+        const city = new CityVisualizer('city-container');
+        // 获取按钮
+        const btnBase = document.getElementById('btn-base');
+        const btnCamera = document.getElementById('btn-camera');
+        const btnRsu = document.getElementById('btn-rsu');
+        const btnReset = document.getElementById('btn-reset');
+        // 定义颜色
+        btnBase.onclick = () => city.changeNodeColor('baseStation', 0xff0000);
+        btnCamera.onclick = () => city.changeNodeColor('camera', 0x00ff00);
+        btnRsu.onclick = () => city.changeNodeColor('rsu', 0x0000ff);
+        btnReset.onclick = () => {
+            city.changeNodeColor('baseStation', 0x4477aa);
+            city.changeNodeColor('camera', 0x88aaff);
+            city.changeNodeColor('rsu', 0x44aaff);
+        };
+        // 获取高亮按钮
+        const btnHighlight = document.getElementById('btn-highlight');
+        const btnClear = document.getElementById('btn-clear');
+
+        // 绑定高亮事件
+        btnHighlight.onclick = () => city.highlightNode('baseStation', 0.8, 0xffaa00);
+        btnClear.onclick = () => city.clearHighlight('baseStation');
+    </script>
+</body>
+</html>
