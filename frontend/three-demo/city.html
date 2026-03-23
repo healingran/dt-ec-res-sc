@@ -69,7 +69,7 @@
         🏙️ 现代玻璃幕墙城市 | 昼夜循环 | 磨砂质感建筑
     </div>
     <div id="load-panel">
-        🔄 平均负载: <span id="load-value">0.00</span>
+        📈 预测负载: <span id="load-value">0.00</span>
     </div>
     <div id="time-panel">
         🌞 时间: <span id="time-display">12:00</span>
@@ -534,8 +534,31 @@
         scene.add(moon);
         
         const timeDisplay = document.getElementById('time-display');
+        /** 后端 API（与 main.py 里 uvicorn 端口一致） */
+        const API_BASE = 'http://127.0.0.1:8000';
         let cpuLoad = 0.5;
+        let displayLoad = 0.5;
+        let loadFromApi = false;
         const loadSpan = document.getElementById('load-value');
+
+        async function refreshLoadFromApi() {
+            try {
+                const res = await fetch(`${API_BASE}/predict?steps=10`);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                const vals = data.predicted_load;
+                if (!Array.isArray(vals) || vals.length === 0) throw new Error('无预测数据');
+                const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+                displayLoad = avg;
+                cpuLoad = Math.min(1, Math.max(0, avg / 12));
+                loadFromApi = true;
+            } catch (e) {
+                console.warn('后端 /predict 不可用，使用页面内模拟负载:', e.message);
+                loadFromApi = false;
+            }
+        }
+        refreshLoadFromApi();
+        setInterval(refreshLoadFromApi, 8000);
         
         function animateCamera() {
             cameraGroup.rotation.y = -0.5 + Math.sin(Date.now() * 0.001) * 0.3;
@@ -596,8 +619,11 @@
         }
         
         function updateLoadAndColors() {
-            cpuLoad = 0.5 + Math.sin(Date.now() * 0.003) * 0.3;
-            loadSpan.textContent = cpuLoad.toFixed(2);
+            if (!loadFromApi) {
+                cpuLoad = 0.5 + Math.sin(Date.now() * 0.003) * 0.3;
+                displayLoad = cpuLoad;
+            }
+            loadSpan.textContent = displayLoad.toFixed(2);
             const r = Math.min(1, cpuLoad * 2);
             const g = Math.min(1, 2 - cpuLoad * 2);
             const b = 0.3;
