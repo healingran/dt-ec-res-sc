@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>实时负载监控系统</title>
+
+    <link rel="stylesheet" href="monitor.css">
+
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+
+    <!-- Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+</head>
+
+<body>
+
+<!-- 顶部栏 -->
+<div class="header">
+    <h2>实时负载监控系统</h2>
+    <div>
+        <span class="time" id="time"></span>
+        <button class="back-btn" onclick="goBack()">返回首页</button>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- 左：3D -->
+    <div id="left"></div>
+
+    <!-- 右：图表 -->
+    <div id="right">
+        <div id="barChart" class="chart-card"></div>
+        <div id="lineChart" class="chart-card"></div>
+    </div>
+
+</div>
+
+<script>
+    // =============================
+    // ⏰ 时间
+    // =============================
+    function updateTime() {
+        const now = new Date();
+        document.getElementById("time").innerText = now.toLocaleString();
+    }
+    setInterval(updateTime, 1000);
+    updateTime();
+
+    function goBack() {
+        window.location.href = "index.html";
+    }
+
+    // =============================
+    // 📊 图表
+    // =============================
+
+    const barChart = echarts.init(document.getElementById('barChart'));
+    const lineChart = echarts.init(document.getElementById('lineChart'));
+
+    let historyMap = {};
+
+    barChart.setOption({
+        title: { text: 'CPU 当前负载', left: 'center' },
+        tooltip: {},
+        xAxis: { type: 'category', data: [] },
+        yAxis: { type: 'value' },
+        series: [{
+            type: 'bar',
+            data: [],
+            itemStyle: { color: '#3b82f6' }
+        }]
+    });
+
+    lineChart.setOption({
+        title: { text: 'CPU 负载变化（多节点）', left: 'center' },
+        tooltip: { trigger: 'axis' },
+        legend: { data: [] },
+        xAxis: { type: 'category', data: [] },
+        yAxis: { type: 'value' },
+        series: []
+    });
+
+    async function fetchData() {
+        const res = await fetch("http://127.0.0.1:8000/nodes");
+        const data = await res.json();
+        const nodes = data.nodes;
+
+        const names = nodes.map(n => n.name);
+        const cpu = nodes.map(n => n.cpu);
+
+        // 柱状图
+        barChart.setOption({
+            xAxis: { data: names },
+            series: [{ data: cpu }]
+        });
+
+        // 折线图（多节点）
+        nodes.forEach(node => {
+            if (!historyMap[node.name]) {
+                historyMap[node.name] = [];
+            }
+            historyMap[node.name].push(node.cpu);
+            if (historyMap[node.name].length > 20) {
+                historyMap[node.name].shift();
+            }
+        });
+
+        const series = Object.keys(historyMap).map(name => ({
+            name: name,
+            type: 'line',
+            smooth: true,
+            data: historyMap[name]
+        }));
+
+        lineChart.setOption({
+            legend: { data: Object.keys(historyMap) },
+            xAxis: { data: historyMap[nodes[0].name].map((_, i) => i) },
+            series: series
+        });
+    }
+
+    fetchData();
+    setInterval(fetchData, 2000);
+
+    // =============================
+    // 🧊 Three.js 3D
+    // =============================
+
+    const container = document.getElementById("left");
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, container.clientWidth/container.clientHeight, 0.1, 1000);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setClearColor(0xf0f4f8); // ⭐浅色背景
+    container.appendChild(renderer.domElement);
+
+    camera.position.z = 5;
+
+    let cubes = [];
+
+    function createCubes(nodes) {
+        cubes.forEach(c => scene.remove(c));
+        cubes = [];
+
+        nodes.forEach((node, i) => {
+            const height = node.cpu / 20;
+
+            const geometry = new THREE.BoxGeometry(0.5, height, 0.5);
+
+            const color = node.cpu > 70 ? 0xef4444 :
+                          node.cpu > 40 ? 0xf59e0b :
+                          0x10b981;
+
+            const material = new THREE.MeshStandardMaterial({ color });
+
+            const cube = new THREE.Mesh(geometry, material);
+            cube.position.x = i - 1;
+            cube.position.y = height / 2;
+
+            scene.add(cube);
+            cubes.push(cube);
+        });
+    }
+
+    // 光源（关键，不然很丑）
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(5, 5, 5);
+    scene.add(light);
+
+    const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambient);
+
+    async function update3D() {
+        const res = await fetch("http://127.0.0.1:8000/nodes");
+        const data = await res.json();
+        createCubes(data.nodes);
+    }
+
+    setInterval(update3D, 2000);
+
+    function animate() {
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+    }
+
+    animate();
+</script>
+
+</body>
+</html>

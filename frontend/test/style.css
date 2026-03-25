@@ -1,0 +1,89 @@
+/* 全局 */
+body {
+    margin: 0;
+    font-family: "Segoe UI", Arial;
+    background: #f5f7fb;
+    color: #333;
+}
+
+/* 导航栏 */
+#nav {
+    display: flex;
+    background: #ffffff;
+    padding: 12px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+#nav button {
+    margin-right: 10px;
+    padding: 10px 16px;
+    background: #e5e7eb;
+    color: #333;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+#nav button:hover {
+    background: #3b82f6;
+    color: white;
+}
+
+/* 页面 */
+.page {
+    display: none;
+    padding: 30px;
+}
+
+.active {
+    display: block;
+}
+
+/* 首页封面 */
+.hero {
+    text-align: center;
+    margin-top: 80px;
+}
+
+.hero h1 {
+    font-size: 34px;
+    color: #1f2937;
+}
+
+.hero p {
+    color: #6b7280;
+}
+
+/* 卡片按钮 */
+.card {
+    margin: 30px auto;
+    padding: 25px;
+    width: 320px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+
+/* 图表区域 */
+#charts {
+    display: flex;
+    gap: 20px;
+    height: 75vh;
+}
+
+/* 图表卡片 */
+#barChart, #lineChart {
+    flex: 1;
+    background: white;
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}

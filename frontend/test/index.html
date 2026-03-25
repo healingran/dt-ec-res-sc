@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>智慧城市边缘计算资源数字孪生管理平台</title>
+
+    <!-- 引入CSS -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+</head>
+
+<body>
+
+<!-- 导航 -->
+<div id="nav">
+    <button onclick="showPage('home')">首页</button>
+    <button onclick="showPage('scene')">应用场景</button>
+    <button onclick="showPage('tech')">技术原理</button>
+    <button onclick="showPage('data')">数据展示</button>
+</div>
+
+<!-- 首页 -->
+<div id="home" class="page active">
+    <div class="hero">
+        <h1>智慧城市边缘计算资源数字孪生管理平台</h1>
+        <p>实时监控 · 智能调度 · 负载预测</p>
+
+        <!-- ⭐跳转按钮 -->
+        <div class="card" onclick="goMonitor()">
+            <h3>进入实时监控系统</h3>
+            <p>查看3D节点与CPU负载变化</p>
+        </div>
+    </div>
+</div>
+
+<!-- 应用场景 -->
+<div id="scene" class="page">
+    <h2>应用场景</h2>
+    <ul>
+        <li>智慧城市边缘计算</li>
+        <li>物联网设备负载管理</li>
+        <li>云边协同调度</li>
+    </ul>
+</div>
+
+<!-- 技术原理 -->
+<div id="tech" class="page">
+    <h2>技术原理</h2>
+    <ul>
+        <li>后端：FastAPI 提供接口</li>
+        <li>前端：ECharts + Three.js</li>
+        <li>数据：模拟器动态生成</li>
+    </ul>
+</div>
+
+<!-- 数据展示 -->
+<div id="data" class="page">
+    <h2>实时数据展示</h2>
+
+    <div id="charts">
+        <div id="barChart"></div>
+        <div id="lineChart"></div>
+    </div>
+</div>
+
+<script>
+function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+
+// ⭐跳转函数
+function goMonitor() {
+    window.open("monitor.html");
+}
+
+// 图表初始化
+const barChart = echarts.init(document.getElementById('barChart'));
+const lineChart = echarts.init(document.getElementById('lineChart'));
+
+let cpuHistory = [];
+
+barChart.setOption({
+    title: { text: 'CPU负载' },
+    xAxis: { type: 'category', data: [] },
+    yAxis: { type: 'value' },
+    series: [{ type: 'bar', data: [] }]
+});
+
+lineChart.setOption({
+    title: { text: '负载变化' },
+    xAxis: { type: 'category', data: [] },
+    yAxis: { type: 'value' },
+    series: [{ type: 'line', data: [] }]
+});
+
+async function fetchData() {
+    const res = await fetch("http://127.0.0.1:8000/nodes");
+    const data = await res.json();
+
+    const nodes = data.nodes;
+
+    const names = nodes.map(n => n.name);
+    const cpu = nodes.map(n => n.cpu);
+
+    barChart.setOption({
+        xAxis: { data: names },
+        series: [{ data: cpu }]
+    });
+
+    cpuHistory.push(cpu[0]);
+    if (cpuHistory.length > 20) cpuHistory.shift();
+
+    lineChart.setOption({
+        xAxis: { data: cpuHistory.map((_, i) => i) },
+        series: [{ data: cpuHistory }]
+    });
+}
+
+fetchData();
+setInterval(fetchData, 2000);
+</script>
+
+</body>
+</html>
