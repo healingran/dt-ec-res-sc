@@ -1,12 +1,14 @@
 # main.py
 from fastapi import APIRouter, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from algorithms.predictor import get_predictions
 from algorithms.scheduler import execute_schedule
 from backend.models import nodes, task_counter, tasks
 from backend.simulator import start_simulator
 from backend.ws_manager import manager as ws_manager
+from backend import database as db
 
 import uvicorn
 
@@ -32,6 +34,9 @@ app.add_middleware(
 start_simulator()
 
 api_v1 = APIRouter(prefix="/api/v1")
+
+class ExperimentCreate(BaseModel):
+    experiment_name: str
 
 
 @api_v1.get("/nodes")
@@ -65,6 +70,41 @@ def trigger_schedule_v1(strategy: str = "least_load"):
 def predict_load_v1(steps: int = 10):
     """LSTM 负载预测，steps 为预测步数，默认 10"""
     return get_predictions(steps=steps)
+
+@api_v1.post("/experiments")
+def create_experiment_v1(payload: ExperimentCreate):
+    return db.create_experiment(payload.experiment_name)
+
+
+@api_v1.post("/experiments/{experiment_id}/start")
+def start_experiment_v1(experiment_id: int):
+    return db.start_experiment(experiment_id)
+
+
+@api_v1.post("/experiments/{experiment_id}/stop")
+def stop_experiment_v1(experiment_id: int):
+    return db.stop_experiment(experiment_id)
+
+
+@api_v1.get("/experiments")
+def list_experiments_v1():
+    return {"experiments": db.list_experiments()}
+
+
+@api_v1.get("/experiments/{experiment_id}")
+def get_experiment_v1(experiment_id: int):
+    try:
+        return db.get_experiment(experiment_id)
+    except KeyError as e:
+        return {"error": str(e)}
+
+
+@api_v1.get("/experiments/{experiment_id}/history/nodes")
+def get_experiment_nodes_history_v1(experiment_id: int, limit: int = 500, offset: int = 0):
+    try:
+        return db.get_nodes_history(experiment_id, limit=limit, offset=offset)
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.get("/predict")

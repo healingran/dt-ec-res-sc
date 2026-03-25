@@ -14,6 +14,11 @@ def check(db_path: str = "smart_city.db") -> None:
     for col in cur.fetchall():
         print(f"  - {col[1]} ({col[2]})")
 
+    cur.execute("PRAGMA table_info(experiment)")
+    print("\n📄 `experiment` 表结构：")
+    for col in cur.fetchall():
+        print(f"  - {col[1]} ({col[2]})")
+
     conn.close()
 
 
