@@ -3,13 +3,56 @@ import random
 import time
 import threading
 from backend.models import nodes  # 注意这里的路径变化！
+from backend.database import init_db, save_node_load
+from backend.ws_manager import manager as ws_manager
+from algorithms.predictor import get_predictions
 
 def _simulate_logic():
+    init_db()
     while True:
         for node in nodes:
             if node["status"] == "online":
                 node["cpu"] = round(max(0, min(100, node["cpu"] + random.uniform(-2, 2))), 1)
                 node["mem"] = round(max(0, min(100, node["mem"] + random.uniform(-2, 2))), 1)
+
+            # 持久化节点快照
+            try:
+                save_node_load(
+                    name=node["name"],
+                    cpu=node["cpu"],
+                    mem=node["mem"],
+                    status=node["status"],
+                )
+            except Exception:
+                # 持久化失败不阻断模拟器
+                pass
+
+        # 获取预测负载（王瑾的 LSTM /predict 逻辑）
+        predicted_load = []
+        steps = []
+        try:
+            pred = get_predictions(steps=10)
+            predicted_load = pred.get("predicted_load", []) or []
+            steps = pred.get("steps", []) or []
+        except Exception:
+            pass
+
+        # 推送给 WebSocket 客户端（包含 cpu/mem/status + predicted_load）
+        snapshot = {
+            "timestamp": time.time(),
+            "nodes": [
+                {
+                    "id": n.get("id"),
+                    "name": n.get("name"),
+                    "cpu": n.get("cpu"),
+                    "mem": n.get("mem"),
+                    "status": n.get("status"),
+                }
+                for n in nodes
+            ],
+            "predicted": {"steps": steps, "predicted_load": predicted_load},
+        }
+        ws_manager.broadcast_threadsafe(snapshot)
         time.sleep(2)
 
 def start_simulator():
