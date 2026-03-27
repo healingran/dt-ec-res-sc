@@ -14,6 +14,9 @@ def _simulate_logic():
             if node["status"] == "online":
                 node["cpu"] = round(max(0, min(100, node["cpu"] + random.uniform(-2, 2))), 1)
                 node["mem"] = round(max(0, min(100, node["mem"] + random.uniform(-2, 2))), 1)
+                # 模拟任务处理：每个周期队列长度衰减（不会一直累积）
+                if "queue_len" in node:
+                    node["queue_len"] = max(0, int(node["queue_len"]) - random.randint(0, 2))
 
             # 持久化节点快照
             try:
