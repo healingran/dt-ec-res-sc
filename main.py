@@ -1,4 +1,6 @@
 # main.py
+import asyncio
+
 from fastapi import APIRouter, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -34,6 +36,12 @@ app.add_middleware(
 start_simulator()
 
 api_v1 = APIRouter(prefix="/api/v1")
+
+
+@app.on_event("startup")
+async def _ws_manager_bind_loop() -> None:
+    """让 simulator 线程里的 broadcast 能尽早挂到当前事件循环（不依赖首个客户端）。"""
+    ws_manager.set_loop(asyncio.get_running_loop())
 
 class ExperimentCreate(BaseModel):
     experiment_name: str
@@ -113,21 +121,40 @@ def predict_load(steps: int = 10):
     return get_predictions(steps=steps)
 
 
-@api_v1.websocket("/ws/nodes")
-async def ws_nodes(websocket: WebSocket):
+async def _ws_nodes_session(websocket: WebSocket) -> None:
+    """保持长连接并接收任意客户端帧；仅用 receive_text 会在对方发二进制帧时 KeyError 并被误断开。"""
     await ws_manager.connect(websocket)
     try:
         while True:
-            # 保持连接：客户端消息可忽略（服务端主要负责广播）
-            await websocket.receive_text()
+            msg = await websocket.receive()
+            if msg["type"] == "websocket.disconnect":
+                break
     except WebSocketDisconnect:
+        pass
+    finally:
         ws_manager.disconnect(websocket)
-    except Exception:
-        ws_manager.disconnect(websocket)
+
+
+@api_v1.websocket("/ws/nodes")
+async def ws_nodes(websocket: WebSocket):
+    await _ws_nodes_session(websocket)
+
+
+@app.websocket("/ws/nodes")
+async def ws_nodes_root_alias(websocket: WebSocket):
+    """兼容联调常用路径 ws://host:8000/ws/nodes（带前缀的完整路径为 /api/v1/ws/nodes）。"""
+    await _ws_nodes_session(websocket)
 
 
 app.include_router(api_v1)
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(
+        app,
+        host="127.0.0.1",
+        port=8000,
+        # 协议级 ping/pong，减轻中间设备因「长时间无帧」断开空闲连接
+        ws_ping_interval=20.0,
+        ws_ping_timeout=20.0,
+    )
