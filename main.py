@@ -19,6 +19,9 @@ app.add_middleware(
         "http://localhost:5500",
         "http://127.0.0.1:3000",
         "http://localhost:3000",
+        # JetBrains IDE 内置 Web 预览（WebStorm / PhpStorm 等，端口多为 63342）
+        "http://127.0.0.1:63342",
+        "http://localhost:63342",
     ],
     allow_credentials=True,
     allow_methods=["*"],
