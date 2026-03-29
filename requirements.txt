@@ -1,6 +1,8 @@
 # Web API
 fastapi>=0.100.0
 uvicorn[standard]>=0.22.0
+# WebSocket（uvicorn 需此包才能处理 /ws 升级，否则会 404 + Unsupported upgrade）
+websockets>=12.0
 
 # 预测模块 (algorithms/predictor.py)
 pandas>=2.0.0

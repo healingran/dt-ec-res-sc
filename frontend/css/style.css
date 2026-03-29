@@ -367,12 +367,12 @@ body::after {
     color: var(--text-muted);
 }
 
-/* 首页双入口：CPU 大屏 / 三维场景 */
-.hero-dual-cta {
+/* 首页入口：驾驶舱 / CPU 大屏 / 三维场景 */
+.hero-triple-cta {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 18px;
-    max-width: 720px;
+    max-width: 1000px;
     margin: 0 auto;
     text-align: left;
 }
@@ -404,6 +404,14 @@ body::after {
 
 .cta-card--city {
     border-left: 3px solid #a78bfa;
+}
+
+.cta-card--dash {
+    border-left: 3px solid #34d399;
+}
+
+.cta-card--dash .cta-card-icon {
+    color: #34d399;
 }
 
 .cta-card-icon {
