@@ -1,0 +1,99 @@
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    background: #0a1030;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+.scene-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.scene-topbar {
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 16px;
+    background: rgba(10, 16, 48, 0.88);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    z-index: 10;
+}
+
+.scene-back,
+.scene-links a {
+    color: #67e8f9;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+}
+
+.scene-back:hover,
+.scene-links a:hover {
+    text-decoration: underline;
+}
+
+.scene-title {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    letter-spacing: 0.06em;
+}
+
+.scene-viewport {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    background: #0a1030;
+    overflow: hidden;
+}
+
+.scene-viewport canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.scene-wrap .scene-status {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    max-width: min(92vw, 720px);
+    margin: 0;
+    padding: 8px 14px;
+    font-size: 12px;
+    line-height: 1.4;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.82);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    color: #cbd5e1;
+    pointer-events: none;
+}
+
+.scene-status.ok {
+    border-color: rgba(52, 211, 153, 0.35);
+}
+
+.scene-status.err {
+    border-color: rgba(248, 113, 113, 0.4);
+    color: #fecaca;
+}

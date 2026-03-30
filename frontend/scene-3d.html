@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0a1030">
+    <title>三维城市场景 · EdgeTwin</title>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/"
+        }
+    }
+    </script>
+    <link rel="stylesheet" href="./css/scene-3d.css">
+</head>
+<body>
+
+<header class="scene-topbar">
+    <a class="scene-back" href="index.html">← 返回首页</a>
+    <span class="scene-title">数字孪生 · 城市场景</span>
+    <nav class="scene-links">
+        <a href="cpu-dashboard.html">CPU 负载大屏 →</a>
+    </nav>
+</header>
+
+<div class="scene-wrap">
+    <div id="scene3d" class="scene-viewport" aria-label="三维城市场景"></div>
+    <p id="sceneStatus" class="scene-status" aria-live="polite"></p>
+</div>
+
+<script type="module" src="./js/scene-3d.js"></script>
+</body>
+</html>

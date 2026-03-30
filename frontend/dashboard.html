@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0b1120">
+    <title>数字孪生 Dashboard · EdgeTwin</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/"
+        }
+    }
+    </script>
+    <link rel="stylesheet" href="./css/dashboard.css">
+</head>
+<body class="dash-body">
+
+<header class="dash-header">
+    <div class="dash-header-left">
+        <a class="dash-back" href="index.html">← 返回首页</a>
+        <h1 class="dash-title">数字孪生 · 一体化驾驶舱</h1>
+    </div>
+    <div class="dash-controls">
+        <label class="dash-label" for="strategySelect">调度策略</label>
+        <select id="strategySelect" class="dash-select">
+            <option value="least_load">最低负载 (least_load)</option>
+            <option value="round_robin">轮询 (round_robin)</option>
+            <option value="random">随机 (random)</option>
+        </select>
+        <button type="button" id="btnSchedule" class="dash-btn dash-btn--primary">执行调度</button>
+        <button type="button" id="btnAddTask" class="dash-btn">添加演示任务</button>
+    </div>
+    <div class="dash-header-right">
+        <span id="wsStatus" class="dash-ws dash-ws--off" title="WebSocket 连接状态">WS：未连接</span>
+        <span id="toast" class="dash-toast" role="status" aria-live="polite"></span>
+    </div>
+</header>
+
+<section class="dash-mid" aria-label="三维城市场景">
+    <div id="scene3d" class="dash-scene"></div>
+</section>
+
+<section class="dash-bottom" aria-label="负载对比图表">
+    <div class="dash-chart-head">
+        <h2>节点 1 · 真实 CPU 与 LSTM 预测对比</h2>
+        <p class="dash-chart-hint">左轴：真实采样 % · 右轴：预测序列（训练数据尺度，便于同屏对照）</p>
+    </div>
+    <div id="chartCompare" class="dash-chart"></div>
+</section>
+
+<script type="module" src="./js/dashboard.js"></script>
+</body>
+</html>

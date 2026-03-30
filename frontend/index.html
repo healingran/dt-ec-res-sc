@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0b1120">
+    <title>智慧城市边缘计算资源数字孪生管理平台</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+    <div class="header-inner">
+        <a href="#" class="brand" onclick="showPage('home'); return false;">
+            <span class="brand-mark" aria-hidden="true">
+                <svg class="brand-svg" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M8 22L16 8l8 14H8z" stroke="rgba(255,255,255,0.9)" stroke-width="1.5" stroke-linejoin="round"/>
+                    <circle cx="16" cy="20" r="2" fill="rgba(255,255,255,0.85)"/>
+                </svg>
+            </span>
+            <span class="brand-text">
+                <span class="brand-title">EdgeTwin</span>
+                <span class="brand-sub">数字孪生管理平台</span>
+            </span>
+        </a>
+        <nav class="site-nav" id="nav" aria-label="主导航">
+            <button type="button" class="nav-link active" data-page="home" onclick="showPage('home')">首页</button>
+            <button type="button" class="nav-link" data-page="scene" onclick="showPage('scene')">应用场景</button>
+            <button type="button" class="nav-link" data-page="tech" onclick="showPage('tech')">技术原理</button>
+            <button type="button" class="nav-link" data-page="data" onclick="showPage('data')">数据展示</button>
+        </nav>
+    </div>
+</header>
+
+<main class="main-wrap">
+
+    <section id="home" class="page active">
+        <div class="hero-shell">
+            <div class="hero-glow hero-glow--1" aria-hidden="true"></div>
+            <div class="hero-glow hero-glow--2" aria-hidden="true"></div>
+            <div class="hero">
+                <p class="hero-badge"><span class="pulse"></span> 数字孪生 · 边缘智能 · 实时可视</p>
+                <h1 class="hero-title">智慧城市边缘计算<br><span class="hero-gradient">资源数字孪生管理平台</span></h1>
+                <p class="hero-lead">统一纳管边缘节点，实时监控负载与资源状态，支撑智能调度与负载预测，为城市级物联网与云边协同提供可视化决策基础。</p>
+
+                <div class="hero-stats">
+                    <div class="stat-card">
+                        <span class="stat-value">3+</span>
+                        <span class="stat-label">边缘节点</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value">实时</span>
+                        <span class="stat-label">负载刷新</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value">3D</span>
+                        <span class="stat-label">城市场景</span>
+                    </div>
+                </div>
+
+                <div class="hero-triple-cta" role="group" aria-label="功能入口">
+                    <a href="dashboard.html" class="cta-card cta-card--dash">
+                        <span class="cta-card-icon" aria-hidden="true">
+                            <svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="6" y="8" width="36" height="28" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 16h36M14 24h8M28 28h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                        </span>
+                        <span class="cta-card-title">数字孪生驾驶舱</span>
+                        <span class="cta-card-desc">上控制 · 中 3D · 下图表 · WebSocket 推送</span>
+                    </a>
+                    <a href="cpu-dashboard.html" class="cta-card cta-card--cpu">
+                        <span class="cta-card-icon" aria-hidden="true">
+                            <svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="8" y="28" width="8" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="20" y="18" width="8" height="22" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="32" y="12" width="8" height="28" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+                        </span>
+                        <span class="cta-card-title">CPU 负载大屏</span>
+                        <span class="cta-card-desc">柱状图 · 多节点折线 · 全屏数据展示</span>
+                    </a>
+                    <a href="scene-3d.html" class="cta-card cta-card--city">
+                        <span class="cta-card-icon" aria-hidden="true">
+                            <svg width="36" height="36" viewBox="0 0 48 48" fill="none"><path d="M24 8L8 16v20h32V16L24 8z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M16 36V22h16v14" stroke="currentColor" stroke-width="1.5"/></svg>
+                        </span>
+                        <span class="cta-card-title">三维城市场景</span>
+                        <span class="cta-card-desc">数字孪生城市 · 设备颜色随负载变化</span>
+                    </a>
+                </div>
+                <p class="cta-hint">驾驶舱为完整交互页；亦可分屏使用 CPU 大屏与纯 3D 页。</p>
+                <p class="cta-extra"><a href="monitor.html" class="cta-link-muted">合屏视图（3D + 图表同页）</a></p>
+            </div>
+        </div>
+
+        <div class="section-divider" aria-hidden="true"><span>核心能力</span></div>
+
+        <div class="feature-grid">
+            <article class="feature-card">
+                <div class="feature-icon-wrap" aria-hidden="true">
+                    <svg class="feature-icon-svg" viewBox="0 0 48 48" fill="none"><path d="M24 6L8 14v20l16 8 16-8V14L24 6z" stroke="currentColor" stroke-width="1.5"/><path d="M24 22v20M8 14l16 8 16-8" stroke="currentColor" stroke-width="1.5" opacity="0.5"/></svg>
+                </div>
+                <h3>全景可视</h3>
+                <p>三维城市与设备模型映射真实拓扑，负载状态以色阶直观呈现。</p>
+            </article>
+            <article class="feature-card">
+                <div class="feature-icon-wrap" aria-hidden="true">
+                    <svg class="feature-icon-svg" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="14" stroke="currentColor" stroke-width="1.5"/><path d="M24 14v10l7 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </div>
+                <h3>智能调度</h3>
+                <p>结合调度策略与预测能力，辅助边缘侧任务分配与资源优化。</p>
+            </article>
+            <article class="feature-card">
+                <div class="feature-icon-wrap" aria-hidden="true">
+                    <svg class="feature-icon-svg" viewBox="0 0 48 48" fill="none"><rect x="10" y="14" width="28" height="20" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M16 22h16M16 28h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/></svg>
+                </div>
+                <h3>数据贯通</h3>
+                <p>RESTful 接口统一数据出口，便于与现有业务与大屏系统对接。</p>
+            </article>
+        </div>
+    </section>
+
+    <section id="scene" class="page">
+        <header class="section-head">
+            <p class="section-kicker">Application</p>
+            <h2>应用场景</h2>
+            <p class="section-desc">面向智慧城市与物联网的典型边缘计算管理需求</p>
+        </header>
+        <div class="scene-grid">
+            <article class="scene-card">
+                <span class="scene-num">01</span>
+                <div class="scene-icon" aria-hidden="true">
+                    <svg viewBox="0 0 40 40" fill="none"><path d="M8 32V12l12-6 12 6v20" stroke="currentColor" stroke-width="1.3"/><path d="M14 18h12M14 24h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                </div>
+                <h3>智慧交通与路侧</h3>
+                <p>路侧单元、摄像头与基站等设备负载集中监控，支撑车路协同与信号优化。</p>
+            </article>
+            <article class="scene-card">
+                <span class="scene-num">02</span>
+                <div class="scene-icon" aria-hidden="true">
+                    <svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="16" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M8 30c4-6 20-6 24 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                </div>
+                <h3>城市物联网</h3>
+                <p>海量传感与边缘网关的统一视图，快速发现热点节点与异常负载。</p>
+            </article>
+            <article class="scene-card">
+                <span class="scene-num">03</span>
+                <div class="scene-icon" aria-hidden="true">
+                    <svg viewBox="0 0 40 40" fill="none"><path d="M10 28V14l10-5 10 5v14" stroke="currentColor" stroke-width="1.3"/><path d="M20 9v23M10 20h20" stroke="currentColor" stroke-width="1.3" opacity="0.5"/></svg>
+                </div>
+                <h3>云边协同</h3>
+                <p>边缘与云端资源协同调度，降低回传压力，满足低时延业务场景。</p>
+            </article>
+        </div>
+    </section>
+
+    <section id="tech" class="page">
+        <header class="section-head">
+            <p class="section-kicker">Architecture</p>
+            <h2>技术原理</h2>
+            <p class="section-desc">前后端分离、接口驱动、可视化与三维渲染协同</p>
+        </header>
+        <ul class="tech-timeline">
+            <li class="tech-timeline-item">
+                <span class="tech-dot" aria-hidden="true"></span>
+                <span class="tech-tag">后端</span>
+                <p class="tech-body"><strong>FastAPI</strong> 提供节点、任务与预测等 REST 接口；后台模拟器持续刷新负载数据。</p>
+            </li>
+            <li class="tech-timeline-item">
+                <span class="tech-dot" aria-hidden="true"></span>
+                <span class="tech-tag">前端</span>
+                <p class="tech-body"><strong>ECharts</strong> 多维图表展示；<strong>Three.js</strong> 构建可交互城市场景与设备着色联动。</p>
+            </li>
+            <li class="tech-timeline-item">
+                <span class="tech-dot" aria-hidden="true"></span>
+                <span class="tech-tag">智能</span>
+                <p class="tech-body">调度与 <strong>LSTM</strong> 等预测能力为负载趋势与决策提供数据支撑（以接口形式集成）。</p>
+            </li>
+        </ul>
+    </section>
+
+    <section id="data" class="page">
+        <header class="section-head">
+            <p class="section-kicker">Live</p>
+            <h2>实时数据展示</h2>
+            <p class="section-desc">演示数据：启动后端并配置跨域后自动刷新</p>
+        </header>
+        <div id="charts" class="charts-wrap">
+            <div class="chart-panel">
+                <div class="chart-panel-head">
+                    <span class="chart-dot"></span>
+                    <h3 class="chart-title">各节点 CPU 负载</h3>
+                </div>
+                <div id="barChart" class="chart-box"></div>
+            </div>
+            <div class="chart-panel">
+                <div class="chart-panel-head">
+                    <span class="chart-dot chart-dot--2"></span>
+                    <h3 class="chart-title">节点 1 CPU 变化趋势</h3>
+                </div>
+                <div id="lineChart" class="chart-box"></div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<footer class="site-footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <span class="footer-logo" aria-hidden="true"></span>
+            <div>
+                <strong>EdgeTwin</strong>
+                <span class="footer-tagline">智慧城市 · 边缘计算 · 数字孪生</span>
+            </div>
+        </div>
+        <p class="footer-copy">演示用界面 · 适用于课程与项目答辩展示</p>
+    </div>
+</footer>
+
+<script>
+function showPage(id) {
+    document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
+    var el = document.getElementById(id);
+    if (el) el.classList.add('active');
+    document.querySelectorAll('.nav-link').forEach(function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-page') === id);
+    });
+    if (id === 'data' && typeof window.__resizeIndexCharts === 'function') {
+        window.__resizeIndexCharts();
+    }
+}
+
+var barChart = echarts.init(document.getElementById('barChart'));
+var lineChart = echarts.init(document.getElementById('lineChart'));
+
+var chartTheme = {
+    color: ['#22d3ee', '#a78bfa', '#34d399'],
+    textStyle: { fontFamily: '"Noto Sans SC", sans-serif' }
+};
+
+var cpuHistory = [];
+
+function ecBarOption(names, cpu) {
+    return {
+        ...chartTheme,
+        tooltip: { trigger: 'axis' },
+        grid: { left: '3%', right: '4%', bottom: '3%', top: '12%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: names,
+            axisLine: { lineStyle: { color: 'rgba(148,163,184,0.5)' } },
+            axisLabel: { color: '#94a3b8', rotate: names.some(function (n) { return n.length > 10; }) ? 20 : 0 }
+        },
+        yAxis: {
+            type: 'value',
+            min: 0,
+            max: 100,
+            name: '%',
+            nameTextStyle: { color: '#94a3b8' },
+            splitLine: { lineStyle: { color: 'rgba(51,65,85,0.4)' } },
+            axisLabel: { color: '#94a3b8' }
+        },
+        series: [{
+            type: 'bar',
+            data: cpu,
+            barWidth: '42%',
+            itemStyle: {
+                borderRadius: [6, 6, 0, 0],
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: '#22d3ee' },
+                    { offset: 1, color: '#0e7490' }
+                ])
+            }
+        }]
+    };
+}
+
+function ecLineOption(xData, yData) {
+    return {
+        ...chartTheme,
+        tooltip: { trigger: 'axis' },
+        grid: { left: '3%', right: '4%', bottom: '3%', top: '12%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: xData,
+            axisLine: { lineStyle: { color: 'rgba(148,163,184,0.5)' } },
+            axisLabel: { color: '#94a3b8' }
+        },
+        yAxis: {
+            type: 'value',
+            min: 0,
+            max: 100,
+            name: '%',
+            nameTextStyle: { color: '#94a3b8' },
+            splitLine: { lineStyle: { color: 'rgba(51,65,85,0.4)' } },
+            axisLabel: { color: '#94a3b8' }
+        },
+        series: [{
+            type: 'line',
+            data: yData,
+            smooth: true,
+            showSymbol: yData.length <= 16,
+            lineStyle: { width: 3, color: '#a78bfa' },
+            areaStyle: {
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: 'rgba(167,139,250,0.35)' },
+                    { offset: 1, color: 'rgba(167,139,250,0.02)' }
+                ])
+            }
+        }]
+    };
+}
+
+barChart.setOption(ecBarOption([], []));
+lineChart.setOption(ecLineOption([], []));
+
+window.__resizeIndexCharts = function () {
+    barChart.resize();
+    lineChart.resize();
+};
+window.addEventListener('resize', window.__resizeIndexCharts);
+
+async function fetchData() {
+    try {
+        var base = (function () {
+            try { return localStorage.getItem('MONITOR_API_BASE') || 'http://127.0.0.1:8000'; } catch (e) { return 'http://127.0.0.1:8000'; }
+        })();
+        var res = await fetch(base.replace(/\/$/, '') + '/nodes', { cache: 'no-store', headers: { Accept: 'application/json' } });
+        if (!res.ok) return;
+        var data = await res.json();
+        var nodes = data.nodes;
+        if (!nodes || !nodes.length) return;
+
+        var names = nodes.map(function (n) { return n.name; });
+        var cpu = nodes.map(function (n) { return Number(n.cpu); });
+
+        barChart.setOption(ecBarOption(names, cpu), { replaceMerge: ['series'] });
+
+        cpuHistory.push(cpu[0]);
+        if (cpuHistory.length > 40) cpuHistory.shift();
+
+        lineChart.setOption(ecLineOption(
+            cpuHistory.map(function (_, i) { return String(i + 1); }),
+            cpuHistory
+        ), { replaceMerge: ['series'] });
+    } catch (e) {
+        console.warn('首页图表数据拉取失败（可忽略或检查后端与 CORS）', e);
+    }
+}
+
+fetchData();
+setInterval(fetchData, 2000);
+</script>
+
+</body>
+</html>

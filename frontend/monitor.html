@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>负载监控系统</title>
+
+    <!-- ECharts（非模块，挂到 window.echarts；需在 import map 之前加载） -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+
+    <!--
+      three-demo/cityVisualizer.js 使用 bare import「three」与「three/addons/...」，
+      浏览器需通过 import map 映射到 CDN 的 ES 模块，否则会报无法解析模块。
+      版本与 frontend/three-demo/package.json 中 three 保持一致。
+    -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/"
+        }
+    }
+    </script>
+
+    <link rel="stylesheet" href="./css/monitor.css">
+</head>
+<body>
+
+<!-- 左：3D（cityVisualizer 挂载 canvas） -->
+<div id="left" aria-label="三维城市场景"></div>
+
+<!-- 右：图表 -->
+<div id="right">
+    <div id="barChart" role="img" aria-label="CPU 柱状图"></div>
+    <div id="lineChart" role="img" aria-label="CPU 折线图"></div>
+    <div id="apiStatus" class="api-status" aria-live="polite"></div>
+</div>
+
+<script type="module" src="./js/monitor.js"></script>
+</body>
+</html>
