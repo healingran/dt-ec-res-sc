@@ -2,6 +2,8 @@
 import random
 from backend.models import nodes, tasks  # 跨文件夹去 backend 拿数据
 from algorithms.predictor import get_predictions
+from algorithms.predictive_policy import pick_node_by_prediction
+from algorithms.realtime_predictor import default_predictor
 
 rr_index = 0
 
@@ -16,6 +18,14 @@ def execute_schedule(strategy: str):
         target_node = random.choice(nodes)
     elif strategy == "least_load":
         target_node = min(nodes, key=lambda x: x["cpu"])
+    elif strategy == "predictive":
+        rt = default_predictor()
+        target_node = pick_node_by_prediction(
+            nodes,
+            get_predictions=lambda steps: rt.predict(steps=steps),
+            steps=5,
+            trend_threshold=0.5,
+        )
     elif strategy == "shortest_queue":
         # 最短队列优先：基于每个节点的 queue_len（由 scheduler 增加、simulator 衰减）
         target_node = min(nodes, key=lambda x: x.get("queue_len", 0))

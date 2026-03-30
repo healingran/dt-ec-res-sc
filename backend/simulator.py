@@ -6,14 +6,21 @@ from backend.models import nodes  # 注意这里的路径变化！
 from backend.database import init_db, save_node_load
 from backend.ws_manager import manager as ws_manager
 from algorithms.predictor import get_predictions
+from algorithms.realtime_predictor import default_predictor
 
 def _simulate_logic():
     init_db()
+    rt_predictor = default_predictor()
     while True:
         for node in nodes:
             if node["status"] == "online":
                 node["cpu"] = round(max(0, min(100, node["cpu"] + random.uniform(-2, 2))), 1)
                 node["mem"] = round(max(0, min(100, node["mem"] + random.uniform(-2, 2))), 1)
+                # 在线预测：喂入实时 CPU 序列（按需可改为只喂 node 1）
+                try:
+                    rt_predictor.update(node["cpu"])
+                except Exception:
+                    pass
                 # 模拟任务处理：每个周期队列长度衰减（不会一直累积）
                 if "queue_len" in node:
                     node["queue_len"] = max(0, int(node["queue_len"]) - random.randint(0, 2))
