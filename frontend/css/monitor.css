@@ -1,0 +1,79 @@
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    background: #f0f2f5;
+    color: #1a1a1a;
+}
+
+body {
+    display: flex;
+    height: 100vh;
+}
+
+/* 左侧 3D：裁剪全屏 canvas，避免 cityVisualizer 按 window 尺寸绘制时溢出 */
+#left {
+    position: relative;
+    flex: 0 0 60%;
+    min-width: 0;
+    min-height: 0;
+    background: #0a1030;
+    overflow: hidden;
+}
+
+#left canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* 右侧图表区 */
+#right {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    gap: 8px;
+}
+
+#barChart,
+#lineChart {
+    flex: 1;
+    min-height: 120px;
+    padding: 8px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* 接口状态：便于确认 /nodes 是否成功、CPU 是否在变 */
+.api-status {
+    flex-shrink: 0;
+    font-size: 12px;
+    line-height: 1.45;
+    padding: 8px 10px;
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid #e0e4ea;
+    color: #444;
+    max-height: 4.5em;
+    overflow: auto;
+}
+
+.api-status.ok {
+    border-color: #c8e6c9;
+    background: #f1f8f4;
+}
+
+.api-status.err {
+    border-color: #ffcdd2;
+    background: #fff5f5;
+    color: #b71c1c;
+}

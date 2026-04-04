@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+const ws = new WebSocket('ws://127.0.0.1:8000/api/v1/ws/nodes');
+ws.onopen = () => console.log('✅ 连接成功');
+ws.onerror = (e) => console.error('❌ 错误', e);
+ws.onclose = (e) => console.log('关闭', e.code);
+</script>
+</body>
+</html>

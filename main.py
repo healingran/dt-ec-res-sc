@@ -1,135 +1,269 @@
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
-from fastapi.websockets import WebSocket, WebSocketDisconnect
 import asyncio
-import json
-import random
-import sqlite3
-import time  # ✅ 新增：用于生成时间戳
+import copy
+from contextlib import asynccontextmanager
+from typing import List
 
-# 数据库连接函数（您已定义，保持不变）
-def get_db_connection():
-    conn = sqlite3.connect('smart_city.db')
-    conn.row_factory = sqlite3.Row  # 让查询结果像字典一样访问
-    return conn
+from fastapi import APIRouter, FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-app = FastAPI()
+from algorithms.predictor import get_predictions
+from algorithms.scheduler import execute_schedule
+from backend import dashboard_state
+from backend import database as db
+from backend.models import nodes, task_counter, tasks
+from backend.simulator import start_simulator
+from backend.ws_manager import manager as ws_manager
 
-# 主页，用于测试连接
-@app.get("/")
-def hello():
-    return {"message": "太牛了，记事本也能写智慧城市后端！"}
+import uvicorn
 
-# WebSocket 端点：用于实时推送节点负载数据
-@app.websocket("/ws/node_load")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()  # 接受客户端连接
+
+_dashboard_ws_clients: List[WebSocket] = []
+
+
+def _build_dashboard_payload() -> dict:
+    """dashboard 推送：节点快照 + 节点1真实历史 + LSTM 预测序列。"""
+    n1 = next((n for n in nodes if n.get("id") == 1), None)
+    if n1 is not None and "cpu" in n1:
+        dashboard_state.append_node1_cpu(n1["cpu"])
+
+    real = list(dashboard_state.CPU_HISTORY)
+    predicted_load: list = []
+    pred_steps: list = []
+    try:
+        pred = get_predictions(steps=15)
+        predicted_load = pred.get("predicted_load") or []
+        pred_steps = pred.get("steps") or []
+    except Exception:
+        predicted_load = []
+        pred_steps = []
+
+    return {
+        "nodes": copy.deepcopy(nodes),
+        "chart": {
+            "real": real,
+            "predicted": predicted_load,
+            "pred_steps": pred_steps,
+        },
+    }
+
+
+async def _dashboard_broadcast_loop() -> None:
+    while True:
+        await asyncio.sleep(2)
+        if not _dashboard_ws_clients:
+            continue
+        payload = _build_dashboard_payload()
+        dead: List[WebSocket] = []
+        for ws in list(_dashboard_ws_clients):
+            try:
+                await ws.send_json(payload)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            if ws in _dashboard_ws_clients:
+                _dashboard_ws_clients.remove(ws)
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    task = asyncio.create_task(_dashboard_broadcast_loop())
+    yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+
+app = FastAPI(lifespan=_lifespan)
+
+# 允许本地前端页面（8080 等端口）跨域访问 API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:8080",
+        "http://localhost:8080",
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+        "http://127.0.0.1:3000",
+        "http://localhost:3000",
+        "http://127.0.0.1:63342",
+        "http://localhost:63342",
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 启动模拟器（含：SQLite 持久化 + WebSocket 广播）
+start_simulator()
+
+api_v1 = APIRouter(prefix="/api/v1")
+
+
+@app.on_event("startup")
+async def _ws_manager_bind_loop() -> None:
+    """让 simulator 线程里的 broadcast 能尽早挂到当前事件循环（不依赖首个客户端）。"""
+    ws_manager.set_loop(asyncio.get_running_loop())
+
+
+class ExperimentCreate(BaseModel):
+    experiment_name: str
+
+
+@api_v1.get("/nodes")
+def get_all_nodes_v1():
+    return {"nodes": nodes}
+
+
+@api_v1.get("/tasks")
+def get_all_tasks_v1():
+    return {"pending_tasks": len(tasks), "tasks": tasks}
+
+
+@api_v1.post("/task")
+def create_new_task_v1(cpu_need: float):
+    new_task = {
+        "id": task_counter["current"],
+        "cpu_need": cpu_need,
+        "status": "waiting",
+    }
+    tasks.append(new_task)
+    task_counter["current"] += 1
+    return {"message": "任务创建成功", "task": new_task}
+
+
+@api_v1.post("/schedule")
+def trigger_schedule_v1(strategy: str = "least_load"):
+    return execute_schedule(strategy)
+
+
+@api_v1.get("/predict")
+def predict_load_v1(steps: int = 10):
+    """LSTM 负载预测，steps 为预测步数，默认 10"""
+    return get_predictions(steps=steps)
+
+
+@api_v1.post("/experiments")
+def create_experiment_v1(payload: ExperimentCreate):
+    return db.create_experiment(payload.experiment_name)
+
+
+@api_v1.post("/experiments/{experiment_id}/start")
+def start_experiment_v1(experiment_id: int):
+    return db.start_experiment(experiment_id)
+
+
+@api_v1.post("/experiments/{experiment_id}/stop")
+def stop_experiment_v1(experiment_id: int):
+    return db.stop_experiment(experiment_id)
+
+
+@api_v1.get("/experiments")
+def list_experiments_v1():
+    return {"experiments": db.list_experiments()}
+
+
+@api_v1.get("/experiments/{experiment_id}")
+def get_experiment_v1(experiment_id: int):
+    try:
+        return db.get_experiment(experiment_id)
+    except KeyError as e:
+        return {"error": str(e)}
+
+
+@api_v1.get("/experiments/{experiment_id}/history/nodes")
+def get_experiment_nodes_history_v1(experiment_id: int, limit: int = 500, offset: int = 0):
+    try:
+        return db.get_nodes_history(experiment_id, limit=limit, offset=offset)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ---- 兼容旧路径：供静态前端直接访问（不带 /api/v1 前缀） ----
+
+
+@app.get("/nodes")
+def get_all_nodes():
+    return get_all_nodes_v1()
+
+
+@app.get("/tasks")
+def get_all_tasks():
+    return get_all_tasks_v1()
+
+
+@app.post("/task")
+def create_new_task(cpu_need: float):
+    return create_new_task_v1(cpu_need)
+
+
+@app.post("/schedule")
+def trigger_schedule(strategy: str = "least_load"):
+    return trigger_schedule_v1(strategy)
+
+
+@app.get("/predict")
+def predict_load(steps: int = 10):
+    """兼容旧路径：保留 /predict，不影响现有前端联调。"""
+    return get_predictions(steps=steps)
+
+
+async def _ws_nodes_session(websocket: WebSocket) -> None:
+    """保持长连接并接收任意客户端帧。"""
+    await ws_manager.connect(websocket)
     try:
         while True:
-            # 模拟节点负载数据
-            load_data = {
-                "node": "server_01",
-                "load": round(random.uniform(0.0, 1.0), 2),
-                "timestamp": time.time()  # ✅ 修改：使用标准的Unix时间戳
-            }
-            
-            # ✅ 【核心修改】：将 INSERT 改为 INSERT OR REPLACE
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            try:
-                # 当 node_name 已存在时，替换整行数据；不存在时，插入新行。
-                cursor.execute("""
-                    INSERT OR REPLACE INTO nodes (node_name, load, timestamp)
-                    VALUES (?, ?, ?)
-                """, (load_data["node"], load_data["load"], load_data["timestamp"]))
-                conn.commit()
-                print(f"✅ 数据已更新到数据库: {load_data}")  # 修改了日志文本
-            except sqlite3.Error as e:
-                print(f"❌ 数据库操作错误: {e}")
-            finally:
-                conn.close()
-            # ✅ 数据存储部分结束
-
-            # 将数据转为 JSON 字符串并发送给客户端
-            await websocket.send_text(json.dumps(load_data))
-            await asyncio.sleep(1)  # 等待1秒，实现“每秒推送”
+            msg = await websocket.receive()
+            if msg["type"] == "websocket.disconnect":
+                break
     except WebSocketDisconnect:
-        print("客户端断开连接")
-    except Exception as e:
-        print(f"WebSocket 发生未知错误: {e}")
-
-# ✅ 新增：API 接口 - 查询所有节点数据
-@app.get("/api/nodes")
-def get_all_nodes():
-    """
-    查询 nodes 表中所有的节点负载记录。
-    返回格式： { "nodes": [ {...}, {...} ] }
-    """
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute("SELECT * FROM nodes ORDER BY timestamp DESC")
-        rows = cursor.fetchall()
-        # 将查询结果转换为字典列表
-        nodes = [dict(row) for row in rows]
-        return {"nodes": nodes}
-    except sqlite3.Error as e:
-        return {"error": f"数据库查询失败: {e}"}
+        pass
     finally:
-        conn.close()
+        ws_manager.disconnect(websocket)
 
-# ✅ 新增：API 接口 - 根据节点名查询最新数据
-@app.get("/api/nodes/{node_name}")
-def get_latest_node_data(node_name: str):
-    """
-    查询指定节点的最新一条负载记录。
-    """
-    conn = get_db_connection()
-    cursor = conn.cursor()
+
+@api_v1.websocket("/ws/nodes")
+async def ws_nodes(websocket: WebSocket):
+    await _ws_nodes_session(websocket)
+
+
+@app.websocket("/ws/nodes")
+async def ws_nodes_root_alias(websocket: WebSocket):
+    """兼容联调常用路径 ws://host:8000/ws/nodes（带前缀的完整路径为 /api/v1/ws/nodes）。"""
+    await _ws_nodes_session(websocket)
+
+
+@app.websocket("/ws/dashboard")
+async def ws_dashboard(websocket: WebSocket):
+    """dashboard 专用：统一每 2s 广播一次（含真实历史 + 预测序列）。"""
+    await websocket.accept()
+    _dashboard_ws_clients.append(websocket)
     try:
-        cursor.execute("""
-            SELECT * FROM nodes 
-            WHERE node_name = ? 
-            ORDER BY timestamp DESC 
-            LIMIT 1
-        """, (node_name,))
-        row = cursor.fetchone()
-        if row:
-            return dict(row)
-        else:
-            return {"message": f"未找到节点 {node_name} 的数据"}
-    except sqlite3.Error as e:
-        return {"error": f"数据库查询失败: {e}"}
+        try:
+            await websocket.send_json(_build_dashboard_payload())
+        except Exception:
+            pass
+        while True:
+            await websocket.receive()
+    except WebSocketDisconnect:
+        pass
     finally:
-        conn.close()
+        if websocket in _dashboard_ws_clients:
+            _dashboard_ws_clients.remove(websocket)
 
-# 可选：提供一个简单的 HTML 页面用于测试 WebSocket
-@app.get("/test")
-def test_page():
-    html_content = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>WebSocket 测试</title>
-    </head>
-    <body>
-        <h1>节点负载实时数据</h1>
-        <div id="data">等待数据...</div>
-        <hr>
-        <h2>数据持久化验证</h2>
-        <p>WebSocket服务每秒生成一条模拟数据，并自动存入数据库。</p>
-        <p>你可以访问以下链接来验证：</p>
-        <ul>
-            <li><a href="/api/nodes" target="_blank">/api/nodes</a> - 查看所有历史数据</li>
-            <li><a href="/api/nodes/server_01" target="_blank">/api/nodes/server_01</a> - 查看 server_01 的最新数据</li>
-        </ul>
-        <script>
-            const ws = new WebSocket("ws://" + window.location.host + "/ws/node_load");
-            ws.onmessage = function(event) {
-                document.getElementById("data").innerText = `实时推送: ${event.data}`;
-            };
-        </script>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
+
+app.include_router(api_v1)
+
+
+if __name__ == "__main__":
+    uvicorn.run(
+        app,
+        host="127.0.0.1",
+        port=8000,
+        ws_ping_interval=20.0,
+        ws_ping_timeout=20.0,
+    )
