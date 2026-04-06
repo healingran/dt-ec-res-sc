@@ -128,7 +128,11 @@ if __name__ == "__main__":
         })
         df.to_csv("algorithms/output/performance_data.csv", index=False)
         print(f"✅ 性能数据已保存：algorithms/output/performance_data.csv")
-        
+        # 在 performance_test.py 最后，plt.show() 之前添加
+        from scripts.performance_report import generate_performance_report
+
+        # 生成性能对比报告
+        generate_performance_report(res_basic, res_lstm)
         plt.show()
         
     except Exception as e:

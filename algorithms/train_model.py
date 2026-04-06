@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from sklearn.preprocessing import MinMaxScaler
-import joblib
+import pickle
 import os
 
 class LSTMPredictor(nn.Module):
@@ -19,14 +19,13 @@ class LSTMPredictor(nn.Module):
 
 if __name__ == "__main__":
     os.makedirs("algorithms/model_save", exist_ok=True)
+    os.makedirs("algorithms/data", exist_ok=True)
     
-    print("🚀 训练更好的模型...")
+    print("🚀 训练 LSTM 模型...")
     
-    # 生成更真实的数据
     np.random.seed(42)
     time = np.arange(0, 3000)
     
-    # 更真实的负载模式
     trend = 0.003 * time
     seasonal = 12 * np.sin(2 * np.pi * time / 48) + 8 * np.sin(2 * np.pi * time / 168)
     noise = np.random.normal(0, 2, len(time))
@@ -38,13 +37,14 @@ if __name__ == "__main__":
     df.to_csv('algorithms/data/load_data.csv', index=False)
     print(f"✅ 生成 {len(df)} 条数据，范围: {load.min():.1f}% - {load.max():.1f}%")
     
-    # 归一化
     scaler = MinMaxScaler()
     data_scaled = scaler.fit_transform(load.reshape(-1, 1))
-    joblib.dump(scaler, 'algorithms/model_save/scaler.joblib')
+    
+    # 使用 pickle 保存
+    with open('algorithms/model_save/scaler.pkl', 'wb') as f:
+        pickle.dump(scaler, f)
     print("✅ Scaler 已保存")
     
-    # 构造数据
     window = 30
     X, y = [], []
     for i in range(len(data_scaled) - window):
@@ -55,7 +55,6 @@ if __name__ == "__main__":
     y = torch.tensor(np.array(y), dtype=torch.float32)
     print(f"✅ 训练数据: {len(X)} 条")
     
-    # 训练
     model = LSTMPredictor()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     criterion = nn.MSELoss()
@@ -80,7 +79,6 @@ if __name__ == "__main__":
     
     print(f"\n✅ 训练完成！最佳损失: {best_loss:.6f}")
     
-    # 测试预测
     model.eval()
     with torch.no_grad():
         last_seq = data_scaled[-window:].reshape(1, window, 1)
