@@ -33,12 +33,19 @@ python -m pip install -r requirements.txt
 
 ### 2) 启动后端（FastAPI）
 
+**Windows（推荐）**：在项目根目录执行 `.\start_backend.ps1`（自动尝试激活 `.venv`）。  
+仅检查 8000 是否已有服务：`.\start_backend.ps1 -HealthOnly`
+
+**通用**：
+
 ```bash
 cd E:\SmartCity_Platform
 python main.py
 ```
 
 打开接口文档：`http://127.0.0.1:8000/docs`
+
+演示步骤、大屏与实验验收见 **`docs/demo-runbook.md`**；接口约定见 **`docs/api-contract.md`**。
 
 ---
 
