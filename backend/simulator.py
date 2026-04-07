@@ -16,9 +16,11 @@ def _simulate_logic():
             if node["status"] == "online":
                 node["cpu"] = round(max(0, min(100, node["cpu"] + random.uniform(-2, 2))), 1)
                 node["mem"] = round(max(0, min(100, node["mem"] + random.uniform(-2, 2))), 1)
-                # 在线预测：喂入实时 CPU 序列（按需可改为只喂 node 1）
+                # 在线预测：仅记录 tracked 节点（默认 id=1）的 CPU，避免多节点交替写入污染序列
                 try:
-                    rt_predictor.update(node["cpu"])
+                    nid = node.get("id")
+                    if nid is not None:
+                        rt_predictor.update(node["cpu"], node_id=int(nid))
                 except Exception:
                     pass
                 # 模拟任务处理：每个周期队列长度衰减（不会一直累积）
