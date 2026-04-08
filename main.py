@@ -5,7 +5,7 @@ from typing import List
 
 from fastapi import APIRouter, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from algorithms.predictor import get_predictions
 from algorithms.scheduler import execute_schedule
@@ -114,6 +114,13 @@ class ExperimentCreate(BaseModel):
     experiment_name: str
 
 
+class TaskCreate(BaseModel):
+    cpu_need: float = Field(..., ge=0)
+    task_type: str = Field("sensor_fusion")
+    deadline_ms: int = Field(100, ge=1)
+    data_size_kb: float = Field(256.0, ge=0)
+
+
 @api_v1.get("/nodes")
 def get_all_nodes_v1():
     return {"nodes": nodes}
@@ -125,15 +132,34 @@ def get_all_tasks_v1():
 
 
 @api_v1.post("/task")
-def create_new_task_v1(cpu_need: float):
+def create_new_task_v1(
+    cpu_need: float,
+    task_type: str = "sensor_fusion",
+    deadline_ms: int = 100,
+    data_size_kb: float = 256.0,
+):
     new_task = {
         "id": task_counter["current"],
         "cpu_need": cpu_need,
+        "task_type": task_type,
+        "deadline_ms": int(deadline_ms),
+        "data_size_kb": float(data_size_kb),
         "status": "waiting",
     }
     tasks.append(new_task)
     task_counter["current"] += 1
     return {"message": "任务创建成功", "task": new_task}
+
+
+@api_v1.post("/tasks")
+def create_new_task_json_v1(payload: TaskCreate):
+    # 与旧接口共用入队逻辑，确保行为一致
+    return create_new_task_v1(
+        cpu_need=float(payload.cpu_need),
+        task_type=str(payload.task_type),
+        deadline_ms=int(payload.deadline_ms),
+        data_size_kb=float(payload.data_size_kb),
+    )
 
 
 @api_v1.post("/schedule")
