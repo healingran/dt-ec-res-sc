@@ -1,11 +1,178 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>城市可视化组件测试</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Microsoft YaHei', sans-serif; }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            z-index: 100;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 8px 16px;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #3a6b3a;
+            color: white;
+        }
+        button:hover { background-color: #2c4f2c; }
+        #status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.6);
+            padding: 6px 12px;
+            border-radius: 20px;
+            color: #0f0;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 100;
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
 <body>
-<script>
-const ws = new WebSocket('ws://127.0.0.1:8000/api/v1/ws/nodes');
-ws.onopen = () => console.log('✅ 连接成功');
-ws.onerror = (e) => console.error('❌ 错误', e);
-ws.onclose = (e) => console.log('关闭', e.code);
-</script>
+    <div id="city-container" style="width:100vw; height:100vh;"></div>
+    <div id="controls">
+        <button id="btn-base">基站变红</button>
+        <button id="btn-camera">摄像头变绿</button>
+        <button id="btn-rsu">路侧单元变蓝</button>
+        <button id="btn-reset">重置颜色</button>
+        <button id="btn-highlight">高亮基站</button>
+        <button id="btn-clear">清除高亮</button>
+        <button id="btn-view-global">全局视角</button>
+        <button id="btn-view-congested">拥堵视角</button>
+        <button id="btn-view-best">最佳节点</button>
+    </div>
+    <div id="status">🔄 加载中...</div>
+
+    <script type="module">
+        import { CityVisualizer } from './cityVisualizer.js';
+
+        console.log('=== 模块开始执行 ===');
+        
+        // 1. 创建可视化实例
+        const city = new CityVisualizer('city-container');
+        window.city = city;  // 暴露到全局
+        console.log('city 实例化完成', city);
+
+        const statusDiv = document.getElementById('status');
+        
+        // 2. 全色环颜色映射函数
+        function loadToColor(load) {
+            const waypoints = [
+                { load: 0.0, hue: 0 },     // 红
+                { load: 0.2, hue: 30 },    // 橙
+                { load: 0.4, hue: 60 },    // 黄
+                { load: 0.6, hue: 120 },   // 绿
+                { load: 0.8, hue: 240 },   // 蓝
+                { load: 1.0, hue: 300 }    // 紫
+            ];
+            let i = 0;
+            for (; i < waypoints.length - 1; i++) {
+                if (load <= waypoints[i+1].load) break;
+            }
+            const p1 = waypoints[i];
+            const p2 = waypoints[i+1];
+            const t = (load - p1.load) / (p2.load - p1.load);
+            const hue = p1.hue + t * (p2.hue - p1.hue);
+            const color = new THREE.Color().setHSL(hue / 360, 1.0, 0.6);
+            return color.getHex();
+        }
+        window.loadToColor = loadToColor;  // 暴露到全局
+
+        // 3. 设备 ID 映射
+        const idMap = {
+            1: 'baseStation',
+            2: 'camera',
+            3: 'rsu'
+        };
+
+        // 4. 轮询函数
+        function startPolling() {
+            console.log('startPolling 被调用');
+            setInterval(async () => {
+                console.log('轮询回调执行');
+                try {
+                    const response = await fetch('http://127.0.0.1:8000/api/v1/nodes');
+                    console.log('fetch 响应状态:', response.status);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json();
+                    console.log('获取到数据:', data);
+                    if (data.nodes && Array.isArray(data.nodes)) {
+                        data.nodes.forEach(node => {
+                            const deviceId = idMap[node.id];
+                            console.log(`节点 ${node.id} -> 设备 ${deviceId}, 负载 ${node.cpu}%`);
+                            if (deviceId && typeof node.cpu === 'number') {
+                                const load = node.cpu / 100;
+                                const color = loadToColor(load);
+                                const intensity = 0.5 + load * 0.5; // 强度随负载增加
+                                console.log(`调用 changeNodeColor(${deviceId}, 0x${color.toString(16)}, ${intensity})`);
+                                window.city.changeNodeColor(deviceId, color, intensity);
+                            }
+                        });
+                        statusDiv.textContent = '✅ 已连接 (HTTP轮询)';
+                        statusDiv.style.color = '#88ff88';
+                    }
+                } catch (err) {
+                    console.error('HTTP 轮询失败:', err);
+                    statusDiv.textContent = '❌ 无法连接后端';
+                    statusDiv.style.color = '#ff8888';
+                }
+            }, 2000);
+        }
+
+
+        // 启动轮询
+        startPolling();
+
+        // 5. 按钮功能
+        const btnBase = document.getElementById('btn-base');
+        const btnCamera = document.getElementById('btn-camera');
+        const btnRsu = document.getElementById('btn-rsu');
+        const btnReset = document.getElementById('btn-reset');
+        const btnHighlight = document.getElementById('btn-highlight');
+        const btnClear = document.getElementById('btn-clear');
+        const btnGlobal = document.getElementById('btn-view-global');
+        const btnCongested = document.getElementById('btn-view-congested');
+        const btnBest = document.getElementById('btn-view-best');
+
+        btnGlobal.onclick = () => window.city.setView('global');
+        btnCongested.onclick = () => window.city.setView('congested');
+        btnBest.onclick = () => window.city.setView('bestNode');
+        btnBase.onclick = () => window.city.changeNodeColor('baseStation', 0xff0000, 1.0);
+        btnCamera.onclick = () => window.city.changeNodeColor('camera', 0x00ff00, 1.0);
+        btnRsu.onclick = () => window.city.changeNodeColor('rsu', 0x0000ff, 1.0);
+        btnReset.onclick = () => {
+            // 重置为白色自发光（强度0.5）
+            window.city.changeNodeColor('baseStation', 0xffffff, 0.5);
+            window.city.changeNodeColor('camera', 0xffffff, 0.5);
+            window.city.changeNodeColor('rsu', 0xffffff, 0.5);
+        };
+        btnHighlight.onclick = () => window.city.highlightNode('baseStation', 0.8, 0xffaa00);
+        btnClear.onclick = () => window.city.clearHighlight('baseStation');
+        
+        console.log('=== 模块执行完毕 ===');
+    </script>
 </body>
 </html>

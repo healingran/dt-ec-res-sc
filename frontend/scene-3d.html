@@ -14,6 +14,44 @@
     }
     </script>
     <link rel="stylesheet" href="./css/scene-3d.css">
+    <style>
+        /* 视角按钮容器样式 - 悬浮右下角，不影响原有布局 */
+        .view-buttons {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 12px;
+            background: rgba(0,0,0,0.6);
+            padding: 10px 15px;
+            border-radius: 40px;
+            backdrop-filter: blur(8px);
+            font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        }
+        .view-buttons button {
+            background: #2c3e66;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 32px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .view-buttons button:hover {
+            background: #1e2a4a;
+            transform: scale(1.02);
+        }
+        .view-buttons button:active {
+            transform: scale(0.98);
+        }
+        /* 保证原有样式不受影响 */
+        .scene-wrap {
+            position: relative;
+        }
+    </style>
 </head>
 <body>
 
@@ -28,6 +66,13 @@
 <div class="scene-wrap">
     <div id="scene3d" class="scene-viewport" aria-label="三维城市场景"></div>
     <p id="sceneStatus" class="scene-status" aria-live="polite"></p>
+</div>
+
+<!-- 视角切换按钮 -->
+<div class="view-buttons">
+    <button id="viewGlobal">🌍 全局视角</button>
+    <button id="viewCongested">⚠️ 拥塞视角</button>
+    <button id="viewBest">⭐ 最佳节点</button>
 </div>
 
 <script type="module" src="./js/scene-3d.js"></script>

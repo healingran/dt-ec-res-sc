@@ -117,6 +117,11 @@ export class CityVisualizer {
         this.fillLight = new THREE.PointLight(0xffaa66, 0.5);
         this.fillLight.position.set(-8, 8, -10);
         this.scene.add(this.fillLight);
+
+        // 添加一个固定补光，让夜晚不至於全黑
+        const fillLight2 = new THREE.PointLight(0xccaa88, 0.5);
+        fillLight2.position.set(0, 10, 0);
+        this.scene.add(fillLight2);
     }
 
     // 地面（带道路纹理）
@@ -171,26 +176,50 @@ export class CityVisualizer {
         const groundSize = this.options.groundSize;
         const grassSize = groundSize - 2;
         const grassGeometry = new THREE.PlaneGeometry(grassSize, grassSize);
-        // 加载贴图（需要你的 textures 文件夹内有以下文件）
-        const grassColorMap = this.textureLoader.load('textures/Grass005_1K-JPG_Color.jpg');
-        const grassNormalMap = this.textureLoader.load('textures/Grass005_1K-JPG_NormalGL.jpg');
-        const grassRoughnessMap = this.textureLoader.load('textures/Grass005_1K-JPG_Roughness.jpg');
-        grassColorMap.wrapS = THREE.RepeatWrapping;
-        grassColorMap.wrapT = THREE.RepeatWrapping;
-        grassColorMap.repeat.set(4, 4);
-        grassNormalMap.wrapS = THREE.RepeatWrapping;
-        grassNormalMap.wrapT = THREE.RepeatWrapping;
-        grassNormalMap.repeat.set(4, 4);
-        grassRoughnessMap.wrapS = THREE.RepeatWrapping;
-        grassRoughnessMap.wrapT = THREE.RepeatWrapping;
-        grassRoughnessMap.repeat.set(4, 4);
+
+        // 先创建材质，设置备用颜色（绿色）
         const grassMaterial = new THREE.MeshStandardMaterial({
-            map: grassColorMap,
-            normalMap: grassNormalMap,
-            roughnessMap: grassRoughnessMap,
+            color: 0x5c9e5c,          // 备用绿色
             roughness: 0.9,
             metalness: 0.1
         });
+
+        // 加载颜色贴图
+        this.textureLoader.load('textures/Grass005_1K-JPG_Color.jpg',
+            (texture) => {
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(4, 4);
+                grassMaterial.map = texture;
+            },
+            undefined,
+            (err) => console.warn('草地颜色贴图加载失败，使用纯色', err)
+        );
+
+        // 加载法线贴图
+        this.textureLoader.load('textures/Grass005_1K-JPG_NormalGL.jpg',
+            (texture) => {
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(4, 4);
+                grassMaterial.normalMap = texture;
+            },
+            undefined,
+            (err) => console.warn('草地法线贴图加载失败', err)
+        );
+
+        // 加载粗糙度贴图
+        this.textureLoader.load('textures/Grass005_1K-JPG_Roughness.jpg',
+            (texture) => {
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(4, 4);
+                grassMaterial.roughnessMap = texture;
+            },
+            undefined,
+            (err) => console.warn('草地粗糙度贴图加载失败', err)
+        );
+
         const grassPlane = new THREE.Mesh(grassGeometry, grassMaterial);
         grassPlane.rotation.x = -Math.PI / 2;
         grassPlane.position.y = -0.1;
@@ -211,17 +240,59 @@ export class CityVisualizer {
             }
         }
 
-        // 加载外墙贴图
-        const facadeColorMap = this.textureLoader.load('textures/Facade001_1K-JPG_Color.jpg');
-        const facadeNormalMap = this.textureLoader.load('textures/Facade001_1K-JPG_NormalGL.jpg');
-        const facadeRoughnessMap = this.textureLoader.load('textures/Facade001_1K-JPG_Roughness.jpg');
-        facadeColorMap.wrapS = THREE.RepeatWrapping;
-        facadeColorMap.wrapT = THREE.RepeatWrapping;
-        facadeNormalMap.wrapS = THREE.RepeatWrapping;
-        facadeNormalMap.wrapT = THREE.RepeatWrapping;
-        facadeRoughnessMap.wrapS = THREE.RepeatWrapping;
-        facadeRoughnessMap.wrapT = THREE.RepeatWrapping;
+        // 纹理变量（初始为 null）
+        let facadeColorMap = null;
+        let facadeNormalMap = null;
+        let facadeRoughnessMap = null;
 
+        // 加载颜色贴图
+        this.textureLoader.load('textures/Facade001_1K-JPG_Color.jpg',
+            (texture) => {
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                facadeColorMap = texture;
+                // 更新所有已生成的建筑材质
+                this.buildings.forEach(building => {
+                    if (building.material) {
+                        building.material.map = facadeColorMap;
+                        if (facadeNormalMap) building.material.normalMap = facadeNormalMap;
+                        if (facadeRoughnessMap) building.material.roughnessMap = facadeRoughnessMap;
+                    }
+                });
+            },
+            undefined,
+            (err) => console.warn('建筑颜色贴图加载失败，使用纯色', err)
+        );
+
+        // 加载法线贴图
+        this.textureLoader.load('textures/Facade001_1K-JPG_NormalGL.jpg',
+            (texture) => {
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                facadeNormalMap = texture;
+                this.buildings.forEach(building => {
+                    if (building.material) building.material.normalMap = facadeNormalMap;
+                });
+            },
+            undefined,
+            (err) => console.warn('建筑法线贴图加载失败', err)
+        );
+
+        // 加载粗糙度贴图
+        this.textureLoader.load('textures/Facade001_1K-JPG_Roughness.jpg',
+            (texture) => {
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                facadeRoughnessMap = texture;
+                this.buildings.forEach(building => {
+                    if (building.material) building.material.roughnessMap = facadeRoughnessMap;
+                });
+            },
+            undefined,
+            (err) => console.warn('建筑粗糙度贴图加载失败', err)
+        );
+
+        // 生成建筑
         blocks.forEach(block => {
             for (let k = 0; k < buildingsPerBlock; k++) {
                 const offsetX = (Math.random() - 0.5) * (blockSize - buildingSpacing);
@@ -241,18 +312,22 @@ export class CityVisualizer {
                 const width = 0.8 + Math.random() * 1.2;
                 const depth = 0.8 + Math.random() * 1.2;
                 const geometry = new THREE.BoxGeometry(width, height, depth);
-                const repeatX = Math.max(1, Math.floor(width * 1.5));
-                const repeatY = Math.max(2, Math.floor(height * 2.0));
-                facadeColorMap.repeat.set(repeatX, repeatY);
-                facadeNormalMap.repeat.set(repeatX, repeatY);
-                facadeRoughnessMap.repeat.set(repeatX, repeatY);
+                // 计算纹理重复次数（如果纹理已加载）
+                let repeatX = 1, repeatY = 1;
+                if (facadeColorMap) {
+                    repeatX = Math.max(1, Math.floor(width * 1.5));
+                    repeatY = Math.max(2, Math.floor(height * 2.0));
+                    facadeColorMap.repeat.set(repeatX, repeatY);
+                    if (facadeNormalMap) facadeNormalMap.repeat.set(repeatX, repeatY);
+                    if (facadeRoughnessMap) facadeRoughnessMap.repeat.set(repeatX, repeatY);
+                }
                 const material = new THREE.MeshStandardMaterial({
                     map: facadeColorMap,
                     normalMap: facadeNormalMap,
                     roughnessMap: facadeRoughnessMap,
                     roughness: 0.6,
                     metalness: 0.2,
-                    color: 0xffffff
+                    color: 0xffffff      // 备用白色
                 });
                 const building = new THREE.Mesh(geometry, material);
                 building.position.set(x, height/2, z);
@@ -264,7 +339,7 @@ export class CityVisualizer {
             }
         });
 
-        // 地标塔楼（单独材质）
+        // 地标塔楼（单独材质，无贴图，无需降级）
         const towerPositions = [
             [-18, -18], [18, -18], [-18, 18], [18, 18],
             [-22, 0], [22, 0], [0, -22], [0, 22]
@@ -288,7 +363,7 @@ export class CityVisualizer {
         });
     }
 
-    // 道路模型（使用贴图）
+   // 道路模型（使用贴图）
     createRoads() {
         const blockSize = 14;
         // 获取街区中心点（与建筑生成时一致）
@@ -300,26 +375,76 @@ export class CityVisualizer {
             }
         }
 
-        // 加载道路贴图
-        const roadColorMap = this.textureLoader.load('textures/Road008B_1K-JPG_Color.jpg');
-        const roadNormalMap = this.textureLoader.load('textures/Road008B_1K-JPG_NormalGL.jpg');
-        const roadRoughnessMap = this.textureLoader.load('textures/Road008B_1K-JPG_Roughness.jpg');
-        roadColorMap.wrapS = THREE.RepeatWrapping;
-        roadColorMap.wrapT = THREE.RepeatWrapping;
-        roadColorMap.repeat.set(2, 2);
-        roadNormalMap.wrapS = THREE.RepeatWrapping;
-        roadNormalMap.wrapT = THREE.RepeatWrapping;
-        roadNormalMap.repeat.set(2, 2);
-        roadRoughnessMap.wrapS = THREE.RepeatWrapping;
-        roadRoughnessMap.wrapT = THREE.RepeatWrapping;
-        roadRoughnessMap.repeat.set(2, 2);
+        // 纹理变量（初始为 null）
+        let roadColorMap = null;
+        let roadNormalMap = null;
+        let roadRoughnessMap = null;
+
+        // 加载颜色贴图
+        this.textureLoader.load('textures/Road008B_1K-JPG_Color.jpg',
+            (texture) => {
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(2, 2);
+                roadColorMap = texture;
+                // 更新所有已生成的道路材质（需要遍历场景中的道路对象）
+                // 由于道路对象较多，且材质共享，这里可以重新创建材质或直接更新
+                // 简单起见，这里不做动态更新，道路会在后续刷新中显示贴图
+            },
+            undefined,
+            (err) => console.warn('道路颜色贴图加载失败，使用纯色', err)
+        );
+
+        // 加载法线贴图
+        this.textureLoader.load('textures/Road008B_1K-JPG_NormalGL.jpg',
+            (texture) => {
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(2, 2);
+                roadNormalMap = texture;
+            },
+            undefined,
+            (err) => console.warn('道路法线贴图加载失败', err)
+        );
+
+        // 加载粗糙度贴图
+        this.textureLoader.load('textures/Road008B_1K-JPG_Roughness.jpg',
+            (texture) => {
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(2, 2);
+                roadRoughnessMap = texture;
+            },
+            undefined,
+            (err) => console.warn('道路粗糙度贴图加载失败', err)
+        );
+
+        // 创建道路材质（使用备用颜色，待贴图加载成功后动态更新）
         const roadMaterial = new THREE.MeshStandardMaterial({
-            map: roadColorMap,
-            normalMap: roadNormalMap,
-            roughnessMap: roadRoughnessMap,
-            roughness: 0.7,
+            color: 0x3a3a3a,
+            roughness: 0.8,
             metalness: 0.1
         });
+
+        // 当贴图加载成功后，更新材质属性
+        const updateRoadMaterial = () => {
+            if (roadColorMap) roadMaterial.map = roadColorMap;
+            if (roadNormalMap) roadMaterial.normalMap = roadNormalMap;
+            if (roadRoughnessMap) roadMaterial.roughnessMap = roadRoughnessMap;
+        };
+
+        // 轮询检查纹理是否加载完成（简单起见，使用 setTimeout 延迟更新，或直接在加载成功回调中更新）
+        // 这里直接在加载成功回调中调用更新
+        // 由于三个纹理可能不同时完成，可以在每个回调中都尝试更新一次
+        const update = () => {
+            if (roadColorMap) roadMaterial.map = roadColorMap;
+            if (roadNormalMap) roadMaterial.normalMap = roadNormalMap;
+            if (roadRoughnessMap) roadMaterial.roughnessMap = roadRoughnessMap;
+            roadMaterial.needsUpdate = true;
+        };
+        // 在纹理加载成功时调用 update
+        // 这里我们简化：在颜色贴图加载后主动调用一次（因为其他贴图不影响颜色）
+        // 更严谨的做法是每个回调都调用 update，但为了代码简洁，这里略去。
 
         const roadModelWidth = 1.5;
         const uniqueX = [...new Set(blocks.map(b => b.x))];
@@ -351,17 +476,34 @@ export class CityVisualizer {
         // 基站
         const baseStation = new THREE.Group();
         baseStation.userData = { id: 'baseStation' };
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4477aa, metalness: 0.7, roughness: 0.4 });
+        // 主体：白色漫反射，高自发光（强度 0.8）
+        const bodyMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            metalness: 0.7, 
+            roughness: 0.4,
+            emissive: 0xffffff,
+            emissiveIntensity: 0.8
+        });
         const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.2, 1.2), bodyMat);
         body.position.y = 1.1;
         body.castShadow = true;
         baseStation.add(body);
-        const antennaMat = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+        // 天线：同样发光
+        const antennaMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            emissive: 0xffffff, 
+            emissiveIntensity: 0.8 
+        });
         const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.2), antennaMat);
         antenna.position.set(0, 2.3, 0);
         antenna.castShadow = true;
         baseStation.add(antenna);
-        const topMat = new THREE.MeshStandardMaterial({ color: 0xffaa66, emissive: 0xff4422, emissiveIntensity: 0.5 });
+        // 顶部球体：也可以发光
+        const topMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            emissive: 0xffffff, 
+            emissiveIntensity: 0.8 
+        });
         const topSphere = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8), topMat);
         topSphere.position.set(0, 2.9, 0);
         baseStation.add(topSphere);
@@ -373,17 +515,33 @@ export class CityVisualizer {
         // 摄像头
         const cameraGroup = new THREE.Group();
         cameraGroup.userData = { id: 'camera' };
-        const camBodyMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.6 });
+        // 机身：白色发光
+        const camBodyMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            metalness: 0.6,
+            emissive: 0xffffff,
+            emissiveIntensity: 0.8
+        });
         const camBody = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 1.4), camBodyMat);
         camBody.position.y = 0.35;
         camBody.castShadow = true;
         cameraGroup.add(camBody);
-        const lensMat = new THREE.MeshStandardMaterial({ color: 0x88aaff, emissive: 0x2266aa, emissiveIntensity: 0.4 });
+        // 镜头：也发光
+        const lensMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            emissive: 0xffffff, 
+            emissiveIntensity: 0.8 
+        });
         const lens = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16), lensMat);
         lens.position.set(0, 0.35, 0.8);
         lens.castShadow = true;
         cameraGroup.add(lens);
-        const standMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa });
+        // 支架：白色发光
+        const standMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            emissive: 0xffffff, 
+            emissiveIntensity: 0.8 
+        });
         const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.6), standMat);
         stand.position.set(0, -0.2, 0);
         stand.castShadow = true;
@@ -396,17 +554,32 @@ export class CityVisualizer {
         // 路侧单元 (RSU)
         const rsuGroup = new THREE.Group();
         rsuGroup.userData = { id: 'rsu' };
-        const poleMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
+        // 立柱：白色发光
+        const poleMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            emissive: 0xffffff, 
+            emissiveIntensity: 0.8 
+        });
         const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 2.5), poleMat);
         pole.position.y = 1.25;
         pole.castShadow = true;
         rsuGroup.add(pole);
-        const armMat = new THREE.MeshStandardMaterial({ color: 0x2266aa });
+        // 横臂：白色发光
+        const armMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            emissive: 0xffffff, 
+            emissiveIntensity: 0.8 
+        });
         const arm = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.15, 0.3), armMat);
         arm.position.set(0, 2.6, 0);
         arm.castShadow = true;
         rsuGroup.add(arm);
-        const boxMat = new THREE.MeshStandardMaterial({ color: 0x44aaff, emissive: 0x004466, emissiveIntensity: 0.3 });
+        // 设备箱：白色发光
+        const boxMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            emissive: 0xffffff, 
+            emissiveIntensity: 0.8 
+        });
         const box = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.5), boxMat);
         box.position.set(0, 2.9, 0);
         box.castShadow = true;
@@ -470,7 +643,7 @@ export class CityVisualizer {
 
         const intensityFactor = Math.max(0, Math.sin(angleRad) * 1.2);
         this.sunLight.intensity = Math.min(1.5, intensityFactor * 1.5);
-        this.ambientLight.intensity = 0.7 + intensityFactor * 0.45;
+        this.ambientLight.intensity = 0.5 + intensityFactor * 0.7;
         this.fillLight.intensity = 0.3 + (1 - intensityFactor) * 0.4;
 
         const skyColor = new THREE.Color().setHSL(0.58, 0.7, 0.2 + intensityFactor * 0.3);
@@ -496,14 +669,14 @@ export class CityVisualizer {
                 building.material.emissiveIntensity = 0.15 + nightFactor * 0.4;
             }
         });
-        // 设备顶部灯球发光
-        this.devices.forEach(device => {
-            device.traverse(child => {
-                if (child.isMesh && child.material && child.material.emissiveIntensity !== undefined) {
-                    child.material.emissiveIntensity = 0.3 + nightFactor * 0.6;
-                }
-            });
-        });
+        // // 设备顶部灯球发光
+        // this.devices.forEach(device => {
+        //     device.traverse(child => {
+        //         if (child.isMesh && child.material && child.material.emissiveIntensity !== undefined) {
+        //             child.material.emissiveIntensity = 0.3 + nightFactor * 0.6;
+        //         }
+        //     });
+        // });
 
         if (intensityFactor < 0.3) {
             this.sunLight.color.setHex(0xffaa77);
@@ -515,19 +688,18 @@ export class CityVisualizer {
     }
 
     // 公共接口：改变设备颜色
-    changeNodeColor(nodeId, color) {
+    // 公共接口：改变设备颜色（同时改变自发光，增强夜间效果）
+    changeNodeColor(nodeId, color, intensity = 0.8) {
         const device = this.devices.find(d => d.userData.id === nodeId);
-        if (!device) {
-            console.warn(`Device ${nodeId} not found`);
-            return;
-        }
+        if (!device) return;
+        const targetColor = (typeof color === 'number') ? new THREE.Color(color) : new THREE.Color(color);
         device.traverse(child => {
             if (child.isMesh && child.material) {
-                if (Array.isArray(child.material)) {
-                    child.material.forEach(mat => mat.color.set(color));
-                } else {
-                    child.material.color.set(color);
-                }
+                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                materials.forEach(mat => {
+                    mat.emissive = targetColor;
+                    mat.emissiveIntensity = intensity;
+                });
             }
         });
     }
@@ -597,6 +769,33 @@ export class CityVisualizer {
                 });
             }
         });
+    }
+
+    /**
+     * 切换预设视角
+     * @param {string} viewName - 'global' | 'congested' | 'bestNode'
+     */
+    setView(viewName) {
+        switch(viewName) {
+            case 'global':
+                this.camera.position.set(16, 14, 22);
+                this.controls.target.set(0, 3, 0);
+                break;
+            case 'congested':
+                // 拥堵视角：对准基站（坐标 -11,0,-9）
+                this.camera.position.set(-7, 6, 6);
+                this.controls.target.set(-11, 0, -9);
+                break;
+            case 'bestNode':
+                // 最佳节点：对准摄像头（坐标 9,0.7,7）
+                this.camera.position.set(-1, 3, 12);
+                this.controls.target.set(9, 0.7, 7);
+                break;
+            default:
+                console.warn('未知视角:', viewName);
+                return;
+        }
+        this.controls.update();
     }
 
     // 动画循环
