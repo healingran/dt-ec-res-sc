@@ -1,0 +1,83 @@
+{
+  "experiment": {
+    "id": 10,
+    "experiment_name": "exp_round_robin_20260409_190746",
+    "start_time": 1775732866.268943,
+    "end_time": 1775732873.615917,
+    "status": "stopped"
+  },
+  "nodes": [
+    {
+      "id": 12007,
+      "node_name": "Edge-Node-01",
+      "cpu": 98.8,
+      "mem": 11.6,
+      "status": "online",
+      "timestamp": 1775732867.6962838
+    },
+    {
+      "id": 12008,
+      "node_name": "Edge-Node-02",
+      "cpu": 100.0,
+      "mem": 31.4,
+      "status": "online",
+      "timestamp": 1775732867.6966016
+    },
+    {
+      "id": 12009,
+      "node_name": "Edge-Node-03",
+      "cpu": 99.0,
+      "mem": 84.1,
+      "status": "online",
+      "timestamp": 1775732867.6966016
+    },
+    {
+      "id": 12010,
+      "node_name": "Edge-Node-01",
+      "cpu": 98.8,
+      "mem": 11.7,
+      "status": "online",
+      "timestamp": 1775732869.7236896
+    },
+    {
+      "id": 12011,
+      "node_name": "Edge-Node-02",
+      "cpu": 99.6,
+      "mem": 33.2,
+      "status": "online",
+      "timestamp": 1775732869.7273953
+    },
+    {
+      "id": 12012,
+      "node_name": "Edge-Node-03",
+      "cpu": 97.4,
+      "mem": 83.9,
+      "status": "online",
+      "timestamp": 1775732869.7273953
+    },
+    {
+      "id": 12013,
+      "node_name": "Edge-Node-01",
+      "cpu": 99.4,
+      "mem": 10.7,
+      "status": "online",
+      "timestamp": 1775732871.74768
+    },
+    {
+      "id": 12014,
+      "node_name": "Edge-Node-02",
+      "cpu": 100.0,
+      "mem": 33.0,
+      "status": "online",
+      "timestamp": 1775732871.74768
+    },
+    {
+      "id": 12015,
+      "node_name": "Edge-Node-03",
+      "cpu": 98.3,
+      "mem": 85.7,
+      "status": "online",
+      "timestamp": 1775732871.7533906
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "experiment": {
+    "id": 16,
+    "experiment_name": "exp_predict_least_load_20260409_190856",
+    "start_time": 1775732936.3643134,
+    "end_time": 1775732943.6420548,
+    "status": "stopped"
+  },
+  "nodes": [
+    {
+      "id": 12109,
+      "node_name": "Edge-Node-01",
+      "cpu": 100.0,
+      "mem": 2.7,
+      "status": "online",
+      "timestamp": 1775732936.5479364
+    },
+    {
+      "id": 12110,
+      "node_name": "Edge-Node-02",
+      "cpu": 100.0,
+      "mem": 28.7,
+      "status": "online",
+      "timestamp": 1775732936.5499396
+    },
+    {
+      "id": 12111,
+      "node_name": "Edge-Node-03",
+      "cpu": 98.3,
+      "mem": 83.5,
+      "status": "online",
+      "timestamp": 1775732936.5539455
+    },
+    {
+      "id": 12112,
+      "node_name": "Edge-Node-01",
+      "cpu": 100.0,
+      "mem": 3.1,
+      "status": "online",
+      "timestamp": 1775732938.5787258
+    },
+    {
+      "id": 12113,
+      "node_name": "Edge-Node-02",
+      "cpu": 98.1,
+      "mem": 29.6,
+      "status": "online",
+      "timestamp": 1775732938.584414
+    },
+    {
+      "id": 12114,
+      "node_name": "Edge-Node-03",
+      "cpu": 99.9,
+      "mem": 85.0,
+      "status": "online",
+      "timestamp": 1775732938.587413
+    },
+    {
+      "id": 12115,
+      "node_name": "Edge-Node-01",
+      "cpu": 99.2,
+      "mem": 3.2,
+      "status": "online",
+      "timestamp": 1775732940.6031828
+    },
+    {
+      "id": 12116,
+      "node_name": "Edge-Node-02",
+      "cpu": 96.8,
+      "mem": 28.1,
+      "status": "online",
+      "timestamp": 1775732940.6031828
+    },
+    {
+      "id": 12117,
+      "node_name": "Edge-Node-03",
+      "cpu": 98.7,
+      "mem": 83.0,
+      "status": "online",
+      "timestamp": 1775732940.6031828
+    },
+    {
+      "id": 12118,
+      "node_name": "Edge-Node-01",
+      "cpu": 100.0,
+      "mem": 4.6,
+      "status": "online",
+      "timestamp": 1775732942.6244621
+    },
+    {
+      "id": 12119,
+      "node_name": "Edge-Node-02",
+      "cpu": 97.2,
+      "mem": 29.5,
+      "status": "online",
+      "timestamp": 1775732942.6259544
+    },
+    {
+      "id": 12120,
+      "node_name": "Edge-Node-03",
+      "cpu": 100.0,
+      "mem": 84.4,
+      "status": "online",
+      "timestamp": 1775732942.6259544
+    }
+  ]
+}

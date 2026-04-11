@@ -1,0 +1,242 @@
+[
+  {
+    "task": {
+      "message": "任务创建成功",
+      "task": {
+        "id": 131,
+        "cpu_need": 5.0,
+        "status": "waiting"
+      }
+    },
+    "schedule": {
+      "message": "调度成功",
+      "strategy": "round_robin",
+      "task_details": {
+        "id": 131,
+        "cpu_need": 5.0,
+        "status": "assigned",
+        "assigned_to": "Edge-Node-01"
+      },
+      "node_id": 1,
+      "node_name": "Edge-Node-01",
+      "node_cpu_before": 98.6,
+      "node_cpu_after": 100
+    }
+  },
+  {
+    "task": {
+      "message": "任务创建成功",
+      "task": {
+        "id": 132,
+        "cpu_need": 3.0,
+        "status": "waiting"
+      }
+    },
+    "schedule": {
+      "message": "调度成功",
+      "strategy": "round_robin",
+      "task_details": {
+        "id": 132,
+        "cpu_need": 3.0,
+        "status": "assigned",
+        "assigned_to": "Edge-Node-02"
+      },
+      "node_id": 2,
+      "node_name": "Edge-Node-02",
+      "node_cpu_before": 96.6,
+      "node_cpu_after": 99.6
+    }
+  },
+  {
+    "task": {
+      "message": "任务创建成功",
+      "task": {
+        "id": 133,
+        "cpu_need": 8.0,
+        "status": "waiting"
+      }
+    },
+    "schedule": {
+      "message": "调度成功",
+      "strategy": "round_robin",
+      "task_details": {
+        "id": 133,
+        "cpu_need": 8.0,
+        "status": "assigned",
+        "assigned_to": "Edge-Node-03"
+      },
+      "node_id": 3,
+      "node_name": "Edge-Node-03",
+      "node_cpu_before": 98.4,
+      "node_cpu_after": 100
+    }
+  },
+  {
+    "task": {
+      "message": "任务创建成功",
+      "task": {
+        "id": 134,
+        "cpu_need": 2.0,
+        "status": "waiting"
+      }
+    },
+    "schedule": {
+      "message": "调度成功",
+      "strategy": "round_robin",
+      "task_details": {
+        "id": 134,
+        "cpu_need": 2.0,
+        "status": "assigned",
+        "assigned_to": "Edge-Node-01"
+      },
+      "node_id": 1,
+      "node_name": "Edge-Node-01",
+      "node_cpu_before": 100,
+      "node_cpu_after": 100
+    }
+  },
+  {
+    "task": {
+      "message": "任务创建成功",
+      "task": {
+        "id": 135,
+        "cpu_need": 6.0,
+        "status": "waiting"
+      }
+    },
+    "schedule": {
+      "message": "调度成功",
+      "strategy": "round_robin",
+      "task_details": {
+        "id": 135,
+        "cpu_need": 6.0,
+        "status": "assigned",
+        "assigned_to": "Edge-Node-02"
+      },
+      "node_id": 2,
+      "node_name": "Edge-Node-02",
+      "node_cpu_before": 99.6,
+      "node_cpu_after": 100
+    }
+  },
+  {
+    "task": {
+      "message": "任务创建成功",
+      "task": {
+        "id": 136,
+        "cpu_need": 4.0,
+        "status": "waiting"
+      }
+    },
+    "schedule": {
+      "message": "调度成功",
+      "strategy": "round_robin",
+      "task_details": {
+        "id": 136,
+        "cpu_need": 4.0,
+        "status": "assigned",
+        "assigned_to": "Edge-Node-03"
+      },
+      "node_id": 3,
+      "node_name": "Edge-Node-03",
+      "node_cpu_before": 100,
+      "node_cpu_after": 100
+    }
+  },
+  {
+    "task": {
+      "message": "任务创建成功",
+      "task": {
+        "id": 137,
+        "cpu_need": 7.0,
+        "status": "waiting"
+      }
+    },
+    "schedule": {
+      "message": "调度成功",
+      "strategy": "round_robin",
+      "task_details": {
+        "id": 137,
+        "cpu_need": 7.0,
+        "status": "assigned",
+        "assigned_to": "Edge-Node-01"
+      },
+      "node_id": 1,
+      "node_name": "Edge-Node-01",
+      "node_cpu_before": 98.4,
+      "node_cpu_after": 100
+    }
+  },
+  {
+    "task": {
+      "message": "任务创建成功",
+      "task": {
+        "id": 138,
+        "cpu_need": 1.0,
+        "status": "waiting"
+      }
+    },
+    "schedule": {
+      "message": "调度成功",
+      "strategy": "round_robin",
+      "task_details": {
+        "id": 138,
+        "cpu_need": 1.0,
+        "status": "assigned",
+        "assigned_to": "Edge-Node-02"
+      },
+      "node_id": 2,
+      "node_name": "Edge-Node-02",
+      "node_cpu_before": 99.2,
+      "node_cpu_after": 100
+    }
+  },
+  {
+    "task": {
+      "message": "任务创建成功",
+      "task": {
+        "id": 139,
+        "cpu_need": 9.0,
+        "status": "waiting"
+      }
+    },
+    "schedule": {
+      "message": "调度成功",
+      "strategy": "round_robin",
+      "task_details": {
+        "id": 139,
+        "cpu_need": 9.0,
+        "status": "assigned",
+        "assigned_to": "Edge-Node-03"
+      },
+      "node_id": 3,
+      "node_name": "Edge-Node-03",
+      "node_cpu_before": 98.6,
+      "node_cpu_after": 100
+    }
+  },
+  {
+    "task": {
+      "message": "任务创建成功",
+      "task": {
+        "id": 140,
+        "cpu_need": 2.0,
+        "status": "waiting"
+      }
+    },
+    "schedule": {
+      "message": "调度成功",
+      "strategy": "round_robin",
+      "task_details": {
+        "id": 140,
+        "cpu_need": 2.0,
+        "status": "assigned",
+        "assigned_to": "Edge-Node-01"
+      },
+      "node_id": 1,
+      "node_name": "Edge-Node-01",
+      "node_cpu_before": 100,
+      "node_cpu_after": 100
+    }
+  }
+]

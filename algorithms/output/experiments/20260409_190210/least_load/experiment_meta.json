@@ -1,0 +1,28 @@
+{
+  "api_base": "http://127.0.0.1:8000",
+  "strategy": "least_load",
+  "experiment": {
+    "created": {
+      "id": 1,
+      "experiment_name": "exp_least_load_20260409_190210",
+      "start_time": null,
+      "end_time": null,
+      "status": "created"
+    },
+    "started": {
+      "id": 1,
+      "experiment_name": "exp_least_load_20260409_190210",
+      "start_time": 1775732530.7756138,
+      "end_time": null,
+      "status": "running"
+    },
+    "stopped": {
+      "id": 1,
+      "experiment_name": "exp_least_load_20260409_190210",
+      "start_time": 1775732530.7756138,
+      "end_time": 1775732538.096472,
+      "status": "stopped"
+    }
+  },
+  "task_count": 10
+}

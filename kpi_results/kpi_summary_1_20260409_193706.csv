@@ -1,0 +1,11 @@
+指标,值
+experiment_id,1
+experiment_name,exp_least_load_20260409_190210
+calculation_time,2026-04-09T19:37:06.727997
+total_tasks,0
+completion_rate,0
+timeout_rate,0
+avg_duration,0
+p95_duration,0
+avg_cpu_utilization,65.05
+avg_queue_length,32.111111111111114

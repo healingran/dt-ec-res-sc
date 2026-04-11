@@ -1,0 +1,28 @@
+{
+  "api_base": "http://127.0.0.1:8000",
+  "strategy": "shortest_queue",
+  "experiment": {
+    "created": {
+      "id": 3,
+      "experiment_name": "exp_shortest_queue_20260409_190225",
+      "start_time": null,
+      "end_time": null,
+      "status": "created"
+    },
+    "started": {
+      "id": 3,
+      "experiment_name": "exp_shortest_queue_20260409_190225",
+      "start_time": 1775732545.5705378,
+      "end_time": null,
+      "status": "running"
+    },
+    "stopped": {
+      "id": 3,
+      "experiment_name": "exp_shortest_queue_20260409_190225",
+      "start_time": 1775732545.5705378,
+      "end_time": 1775732552.922335,
+      "status": "stopped"
+    }
+  },
+  "task_count": 10
+}

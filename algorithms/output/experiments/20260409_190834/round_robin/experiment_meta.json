@@ -1,0 +1,28 @@
+{
+  "api_base": "http://127.0.0.1:8000",
+  "strategy": "round_robin",
+  "experiment": {
+    "created": {
+      "id": 14,
+      "experiment_name": "exp_round_robin_20260409_190841",
+      "start_time": null,
+      "end_time": null,
+      "status": "created"
+    },
+    "started": {
+      "id": 14,
+      "experiment_name": "exp_round_robin_20260409_190841",
+      "start_time": 1775732921.5530372,
+      "end_time": null,
+      "status": "running"
+    },
+    "stopped": {
+      "id": 14,
+      "experiment_name": "exp_round_robin_20260409_190841",
+      "start_time": 1775732921.5530372,
+      "end_time": 1775732928.9041424,
+      "status": "stopped"
+    }
+  },
+  "task_count": 10
+}
