@@ -377,6 +377,12 @@ body::after {
     text-align: left;
 }
 
+.hero-single-cta {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+}
+
 .cta-card {
     display: flex;
     flex-direction: column;
@@ -410,8 +416,16 @@ body::after {
     border-left: 3px solid #34d399;
 }
 
+.cta-card--console {
+    border-left: 3px solid #a78bfa;
+}
+
 .cta-card--dash .cta-card-icon {
     color: #34d399;
+}
+
+.cta-card--console .cta-card-icon {
+    color: #a78bfa;
 }
 
 .cta-card-icon {

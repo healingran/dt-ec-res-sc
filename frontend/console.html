@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0b1120">
+    <title>控制台 - EdgeTwin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .console-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .console-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .console-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .console-subtitle {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            font-size: 0.88rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.offline {
+            background: #ef4444;
+            animation: none;
+        }
+
+        .status-dot.warning {
+            background: #f59e0b;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .console-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .console-panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius);
+            padding: 24px;
+            backdrop-filter: blur(12px);
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .panel-icon {
+            width: 32px;
+            height: 32px;
+            color: var(--accent);
+        }
+
+        .panel-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .panel-content {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .control-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background: rgba(34, 211, 238, 0.1);
+            border-color: var(--accent);
+        }
+
+        .btn.active {
+            background: rgba(34, 211, 238, 0.2);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #22d3ee 0%, #0891b2 100%);
+            border-color: transparent;
+            color: #0f172a;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #06b6d4 0%, #0e7490 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            border-color: transparent;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            border-color: transparent;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            border-color: transparent;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .input-field {
+            padding: 10px 14px;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            width: 120px;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .select-field {
+            padding: 10px 14px;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .select-field:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .info-box {
+            padding: 12px 16px;
+            background: rgba(34, 211, 238, 0.08);
+            border: 1px solid rgba(34, 211, 238, 0.2);
+            border-radius: var(--radius-sm);
+            font-size: 0.88rem;
+            color: var(--text-muted);
+        }
+
+        .info-box strong {
+            color: var(--accent);
+        }
+
+        .monitor-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: var(--radius);
+            font-weight: 600;
+            font-size: 1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .monitor-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(167, 139, 250, 0.3);
+        }
+
+        .console-footer {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: center;
+        }
+
+        .log-area {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.82rem;
+            color: #94a3b8;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            padding: 2px 0;
+        }
+
+        .log-entry.success {
+            color: #22c55e;
+        }
+
+        .log-entry.error {
+            color: #ef4444;
+        }
+
+        .log-entry.warning {
+            color: #f59e0b;
+        }
+
+        .log-entry.info {
+            color: #22d3ee;
+        }
+
+        .current-mode {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: rgba(34, 211, 238, 0.15);
+            border: 1px solid rgba(34, 211, 238, 0.3);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .intensity-display {
+            display: flex;
+            gap: 16px;
+            margin-top: 8px;
+        }
+
+        .intensity-item {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .intensity-item span {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .experiment-status {
+            padding: 12px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+        }
+
+        .experiment-status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 0.88rem;
+        }
+
+        .experiment-status-label {
+            color: var(--text-muted);
+        }
+
+        .experiment-status-value {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        /* Toast 提示样式 */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 10000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .toast.success {
+            background: #22c55e;
+        }
+
+        .toast.error {
+            background: #ef4444;
+        }
+
+        .toast.warning {
+            background: #f59e0b;
+        }
+
+        .toast.info {
+            background: #3b82f6;
+        }
+
+    </style>
+</head>
+<body>
+
+<header class="site-header">
+    <div class="header-inner">
+        <a href="index.html" class="brand">
+            <span class="brand-mark" aria-hidden="true">
+                <svg class="brand-svg" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M8 22L16 8l8 14H8z" stroke="rgba(255,255,255,0.9)" stroke-width="1.5" stroke-linejoin="round"/>
+                    <circle cx="16" cy="20" r="2" fill="rgba(255,255,255,0.85)"/>
+                </svg>
+            </span>
+            <span class="brand-text">
+                <span class="brand-title">EdgeTwin</span>
+                <span class="brand-sub">控制台</span>
+            </span>
+        </a>
+        <nav class="site-nav" aria-label="主导航">
+            <a href="index.html" class="nav-link">首页</a>
+            <a href="console.html" class="nav-link active">控制台</a>
+            <a href="realtime-monitor.html" class="nav-link">实时大屏</a>
+        </nav>
+    </div>
+</header>
+
+<main class="main-wrap">
+    <div class="console-container">
+        <div class="console-header">
+            <div>
+                <h1 class="console-title">控制台</h1>
+                <p class="console-subtitle">场景切换 · 任务生成 · 实验控制 · 调度策略</p>
+            </div>
+            <div class="status-bar">
+                <div class="status-item">
+                    <span class="status-dot" id="backendStatus"></span>
+                    <span id="backendStatusText">后端连接中...</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-dot" id="wsStatus"></span>
+                    <span id="wsStatusText">WS连接中...</span>
+                </div>
+                <div class="status-item">
+                    <span>实验ID:</span>
+                    <span id="experimentId">-</span>
+                </div>
+                <div class="status-item">
+                    <span>状态:</span>
+                    <span id="experimentStatus">-</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="console-grid">
+            <div class="console-panel">
+                <div class="panel-header">
+                    <svg class="panel-icon" viewBox="0 0 32 32" fill="none">
+                        <path d="M16 4L4 10v12l12 6 12-6V10L16 4z" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M4 10l12 6 12-6M16 16v12" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>
+                    <h2 class="panel-title">场景模式切换</h2>
+                </div>
+                <div class="panel-content">
+                    <div class="control-group">
+                        <div class="control-label">当前模式</div>
+                        <div class="current-mode" id="currentMode">offpeak</div>
+                        <div class="intensity-display">
+                            <div class="intensity-item">基础负载: <span id="baseLoad">10</span>%</div>
+                            <div class="intensity-item">突发强度: <span id="burstIntensity">0.5</span></div>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">切换模式</div>
+                        <div class="control-row">
+                            <button class="btn active" onclick="switchScene('offpeak')" id="btnOffpeak">闲时模式</button>
+                            <button class="btn" onclick="switchScene('peak')" id="btnPeak">高峰模式</button>
+                            <button class="btn" onclick="switchScene('incident')" id="btnIncident">事故模式</button>
+                        </div>
+                    </div>
+                    <div class="info-box">
+                        <strong>说明：</strong>闲时模式低负载、高峰模式中等负载、事故模式高负载+大量collision_warning任务
+                    </div>
+                </div>
+            </div>
+
+            <div class="console-panel">
+                <div class="panel-header">
+                    <svg class="panel-icon" viewBox="0 0 32 32" fill="none">
+                        <rect x="4" y="8" width="24" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M8 14h8M8 18h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <h2 class="panel-title">任务生成</h2>
+                </div>
+                <div class="panel-content">
+                    <div class="control-group">
+                        <div class="control-label">单次生成</div>
+                        <div class="control-row">
+                            <div class="input-group">
+                                <input type="number" class="input-field" id="taskCount" value="10" min="1" max="100">
+                                <span style="color: var(--text-muted); font-size: 0.9rem;">个任务</span>
+                            </div>
+                            <button class="btn btn-primary" onclick="generateTasks()">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                </svg>
+                                生成任务
+                            </button>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">持续生成</div>
+                        <div class="control-row">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="continuousGen">
+                                <label for="continuousGen">启用持续生成</label>
+                            </div>
+                            <div class="input-group">
+                                <input type="number" class="input-field" id="genInterval" value="2" min="1" max="10">
+                                <span style="color: var(--text-muted); font-size: 0.9rem;">秒/次</span>
+                            </div>
+                            <button class="btn btn-success" onclick="toggleContinuousGen()" id="btnContinuousGen">开始</button>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">批量生成</div>
+                        <div class="control-row">
+                            <div class="input-group">
+                                <input type="number" class="input-field" id="batchCount" value="50" min="10" max="500">
+                                <span style="color: var(--text-muted); font-size: 0.9rem;">个任务</span>
+                            </div>
+                            <button class="btn btn-warning" onclick="generateBatchTasks()">批量生成</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="console-panel">
+                <div class="panel-header">
+                    <svg class="panel-icon" viewBox="0 0 32 32" fill="none">
+                        <path d="M16 4L4 10v12l12 6 12-6V10L16 4z" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M16 16l-6-3M16 16l6-3" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>
+                    <h2 class="panel-title">触发事故</h2>
+                </div>
+                <div class="panel-content">
+                    <div class="control-group">
+                        <div class="control-label">一键注入大量collision_warning任务</div>
+                        <div class="control-row">
+                            <div class="input-group">
+                                <input type="number" class="input-field" id="incidentCount" value="100" min="10" max="1000">
+                                <span style="color: var(--text-muted); font-size: 0.9rem;">个任务</span>
+                            </div>
+                            <button class="btn btn-danger" onclick="triggerIncident()">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M8 2v6M8 10v4M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                </svg>
+                                触发事故
+                            </button>
+                        </div>
+                    </div>
+                    <div class="info-box">
+                        <strong>警告：</strong>此操作将立即注入大量高优先级任务，可能导致系统负载激增
+                    </div>
+                </div>
+            </div>
+
+            <div class="console-panel">
+                <div class="panel-header">
+                    <svg class="panel-icon" viewBox="0 0 32 32" fill="none">
+                        <circle cx="16" cy="16" r="12" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M16 10v6M16 18v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <h2 class="panel-title">实验控制</h2>
+                </div>
+                <div class="panel-content">
+                    <div class="control-group">
+                        <div class="control-label">实验操作</div>
+                        <div class="control-row">
+                            <button class="btn btn-success" onclick="startExperiment()">开始实验</button>
+                            <button class="btn btn-warning" onclick="stopExperiment()">停止实验</button>
+                            <button class="btn" onclick="resetExperiment()">重置实验</button>
+                        </div>
+                    </div>
+                    <div class="experiment-status">
+                        <div class="experiment-status-item">
+                            <span class="experiment-status-label">实验ID</span>
+                            <span class="experiment-status-value" id="expId">-</span>
+                        </div>
+                        <div class="experiment-status-item">
+                            <span class="experiment-status-label">实验状态</span>
+                            <span class="experiment-status-value" id="expStatus">-</span>
+                        </div>
+                        <div class="experiment-status-item">
+                            <span class="experiment-status-label">开始时间</span>
+                            <span class="experiment-status-value" id="expStartTime">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="console-panel">
+                <div class="panel-header">
+                    <svg class="panel-icon" viewBox="0 0 32 32" fill="none">
+                        <path d="M4 8h24M4 16h24M4 24h24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <h2 class="panel-title">调度策略</h2>
+                </div>
+                <div class="panel-content">
+                    <div class="control-group">
+                        <div class="control-label">选择策略</div>
+                        <select class="select-field" id="schedulerStrategy" style="width: 100%;">
+                            <option value="least_load">least_load - 最少负载优先</option>
+                            <option value="round_robin">round_robin - 轮询调度</option>
+                            <option value="shortest_queue">shortest_queue - 最短队列优先</option>
+                            <option value="sla_predict">sla_predict - SLA预测调度</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">执行策略</div>
+                        <div class="control-row">
+                            <button class="btn btn-primary" onclick="applySchedulerStrategy()">应用策略</button>
+                        </div>
+                    </div>
+                    <div class="info-box">
+                        <strong>当前策略：</strong><span id="currentStrategy">least_load</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="console-panel">
+                <div class="panel-header">
+                    <svg class="panel-icon" viewBox="0 0 32 32" fill="none">
+                        <path d="M4 4h24v24H4z" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M8 8h16M8 12h12M8 16h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <h2 class="panel-title">操作日志</h2>
+                </div>
+                <div class="panel-content">
+                    <div class="log-area" id="logArea">
+                        <div class="log-entry info">[系统] 控制台已初始化</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="console-footer">
+            <a href="realtime-monitor.html" class="monitor-link">
+                <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+                    <rect x="4" y="6" width="24" height="20" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M8 14h6M8 18h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle cx="20" cy="16" r="4" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+                跳转到实时大屏
+            </a>
+        </div>
+    </div>
+</main>
+
+<script>
+let apiBase = 'http://127.0.0.1:8000';
+try {
+    apiBase = localStorage.getItem('MONITOR_API_BASE') || 'http://127.0.0.1:8000';
+} catch (e) {}
+
+let ws = null;
+let continuousGenInterval = null;
+let currentScene = 'offpeak';
+let experimentInfo = null;
+
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.opacity = '1';
+    }, 10);
+    
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 300);
+    }, 3000);
+}
+
+function log(message, type = 'info') {
+    const logArea = document.getElementById('logArea');
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type}`;
+    const time = new Date().toLocaleTimeString();
+    entry.textContent = `[${time}] ${message}`;
+    logArea.appendChild(entry);
+    logArea.scrollTop = logArea.scrollHeight;
+}
+
+async function checkBackendStatus() {
+    try {
+        const res = await fetch(`${apiBase}/api/v1/health`, { 
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
+        if (res.ok) {
+            document.getElementById('backendStatus').classList.remove('offline');
+            document.getElementById('backendStatusText').textContent = '后端在线';
+            return true;
+        }
+    } catch (e) {
+        console.warn('Backend health check failed:', e);
+    }
+    document.getElementById('backendStatus').classList.add('offline');
+    document.getElementById('backendStatusText').textContent = '后端离线';
+    return false;
+}
+
+function connectWebSocket() {
+    const wsUrl = apiBase.replace('http', 'ws') + '/api/v1/ws';
+    try {
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = () => {
+            document.getElementById('wsStatus').classList.remove('offline');
+            document.getElementById('wsStatusText').textContent = 'WS已连接';
+            log('WebSocket连接成功', 'success');
+        };
+        
+        ws.onclose = () => {
+            document.getElementById('wsStatus').classList.add('offline');
+            document.getElementById('wsStatusText').textContent = 'WS断开';
+            log('WebSocket连接断开', 'warning');
+            setTimeout(connectWebSocket, 3000);
+        };
+        
+        ws.onerror = () => {
+            document.getElementById('wsStatus').classList.add('offline');
+            document.getElementById('wsStatusText').textContent = 'WS错误';
+        };
+        
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            handleWebSocketMessage(data);
+        };
+    } catch (e) {
+        log('WebSocket连接失败: ' + e.message, 'error');
+    }
+}
+
+function handleWebSocketMessage(data) {
+    if (data.type === 'nodes_update') {
+        log(`节点更新: ${data.nodes.length} 个节点`, 'info');
+    } else if (data.type === 'tasks_update') {
+        log(`任务更新: ${data.tasks.length} 个任务`, 'info');
+    }
+}
+
+async function switchScene(mode) {
+    try {
+        const res = await fetch(`${apiBase}/api/v1/scene/switch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: mode })
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            currentScene = mode;
+            document.getElementById('currentMode').textContent = mode;
+            document.getElementById('baseLoad').textContent = data.base_load || 10;
+            document.getElementById('burstIntensity').textContent = data.burst_intensity || 0.5;
+            
+            document.querySelectorAll('#btnOffpeak, #btnPeak, #btnIncident').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(`btn${mode.charAt(0).toUpperCase() + mode.slice(1)}`).classList.add('active');
+            
+            log(`场景切换成功: ${mode}`, 'success');
+            showToast(`已切换到 ${mode} 模式`, 'success');
+        } else {
+            log('场景切换失败', 'error');
+            showToast('场景切换失败', 'error');
+        }
+    } catch (e) {
+        log('场景切换错误: ' + e.message, 'error');
+        showToast('场景切换错误: ' + e.message, 'error');
+    }
+}
+
+async function generateTasks() {
+    const count = parseInt(document.getElementById('taskCount').value) || 10;
+    try {
+        const res = await fetch(`${apiBase}/api/v1/tasks/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ count: count })
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            const generatedCount = data.generated || count;
+            log(`成功生成 ${generatedCount} 个任务`, 'success');
+            showToast(`已生成 ${generatedCount} 个任务`, 'success');
+        } else {
+            log('任务生成失败', 'error');
+            showToast('任务生成失败', 'error');
+        }
+    } catch (e) {
+        log('任务生成错误: ' + e.message, 'error');
+        showToast('任务生成错误: ' + e.message, 'error');
+    }
+}
+
+async function generateBatchTasks() {
+    const count = parseInt(document.getElementById('batchCount').value) || 50;
+    try {
+        const res = await fetch(`${apiBase}/api/v1/tasks/batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ count: count })
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            const generatedCount = data.generated || count;
+            log(`批量生成成功: ${generatedCount} 个任务`, 'success');
+            showToast(`已批量生成 ${generatedCount} 个任务`, 'success');
+        } else {
+            log('批量生成失败', 'error');
+            showToast('批量生成失败', 'error');
+        }
+    } catch (e) {
+        log('批量生成错误: ' + e.message, 'error');
+        showToast('批量生成错误: ' + e.message, 'error');
+    }
+}
+
+function toggleContinuousGen() {
+    const checkbox = document.getElementById('continuousGen');
+    const interval = parseInt(document.getElementById('genInterval').value) || 2;
+    const btn = document.getElementById('btnContinuousGen');
+    
+    if (continuousGenInterval) {
+        clearInterval(continuousGenInterval);
+        continuousGenInterval = null;
+        btn.textContent = '开始';
+        btn.classList.remove('btn-danger');
+        btn.classList.add('btn-success');
+        log('持续生成已停止', 'warning');
+        showToast('持续生成已停止', 'warning');
+    } else {
+        if (!checkbox.checked) {
+            log('请先勾选"启用持续生成"', 'warning');
+            showToast('请先勾选"启用持续生成"', 'warning');
+            return;
+        }
+        continuousGenInterval = setInterval(() => {
+            generateTasks();
+        }, interval * 1000);
+        btn.textContent = '停止';
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-danger');
+        log(`持续生成已启动 (每${interval}秒)`, 'success');
+        showToast(`持续生成已启动 (每${interval}秒)`, 'success');
+    }
+}
+
+async function triggerIncident() {
+    const count = parseInt(document.getElementById('incidentCount').value) || 100;
+    try {
+        const res = await fetch(`${apiBase}/api/v1/incident/trigger`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ count: count })
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            const injectedCount = data.injected || count;
+            log(`事故触发成功: 注入 ${injectedCount} 个collision_warning任务`, 'success');
+            showToast(`已注入 ${injectedCount} 个collision_warning任务`, 'success');
+        } else {
+            log('事故触发失败', 'error');
+            showToast('事故触发失败', 'error');
+        }
+    } catch (e) {
+        log('事故触发错误: ' + e.message, 'error');
+        showToast('事故触发错误: ' + e.message, 'error');
+    }
+}
+
+async function startExperiment() {
+    try {
+        const res = await fetch(`${apiBase}/api/v1/experiments/start`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            experimentInfo = data;
+            document.getElementById('experimentId').textContent = data.experiment_id || '-';
+            document.getElementById('experimentStatus').textContent = 'running';
+            document.getElementById('expId').textContent = data.experiment_id || '-';
+            document.getElementById('expStatus').textContent = 'running';
+            document.getElementById('expStartTime').textContent = data.start_time || '-';
+            log(`实验启动成功: ID=${data.experiment_id}`, 'success');
+            showToast(`实验已启动，ID: ${data.experiment_id}`, 'success');
+        } else {
+            log('实验启动失败', 'error');
+            showToast('实验启动失败', 'error');
+        }
+    } catch (e) {
+        log('实验启动错误: ' + e.message, 'error');
+        showToast('实验启动错误: ' + e.message, 'error');
+    }
+}
+
+async function stopExperiment() {
+    if (!experimentInfo) {
+        log('没有正在运行的实验', 'warning');
+        showToast('没有正在运行的实验', 'warning');
+        return;
+    }
+    
+    try {
+        const res = await fetch(`${apiBase}/api/v1/experiments/stop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ experiment_id: experimentInfo.experiment_id })
+        });
+        
+        if (res.ok) {
+            document.getElementById('experimentStatus').textContent = 'stopped';
+            document.getElementById('expStatus').textContent = 'stopped';
+            log('实验已停止', 'success');
+            showToast('实验已停止', 'success');
+        } else {
+            log('实验停止失败', 'error');
+            showToast('实验停止失败', 'error');
+        }
+    } catch (e) {
+        log('实验停止错误: ' + e.message, 'error');
+        showToast('实验停止错误: ' + e.message, 'error');
+    }
+}
+
+async function resetExperiment() {
+    try {
+        const res = await fetch(`${apiBase}/api/v1/experiments/reset`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (res.ok) {
+            experimentInfo = null;
+            document.getElementById('experimentId').textContent = '-';
+            document.getElementById('experimentStatus').textContent = '-';
+            document.getElementById('expId').textContent = '-';
+            document.getElementById('expStatus').textContent = '-';
+            document.getElementById('expStartTime').textContent = '-';
+            log('实验已重置', 'success');
+            showToast('实验已重置', 'success');
+        } else {
+            log('实验重置失败', 'error');
+            showToast('实验重置失败', 'error');
+        }
+    } catch (e) {
+        log('实验重置错误: ' + e.message, 'error');
+        showToast('实验重置错误: ' + e.message, 'error');
+    }
+}
+
+async function applySchedulerStrategy() {
+    const strategy = document.getElementById('schedulerStrategy').value;
+    try {
+        const res = await fetch(`${apiBase}/api/v1/scheduler/strategy`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ strategy: strategy })
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            document.getElementById('currentStrategy').textContent = strategy;
+            log(`调度策略已应用: ${strategy}`, 'success');
+            showToast(`已应用调度策略: ${strategy}`, 'success');
+        } else {
+            log('调度策略应用失败', 'error');
+            showToast('调度策略应用失败', 'error');
+        }
+    } catch (e) {
+        log('调度策略应用错误: ' + e.message, 'error');
+        showToast('调度策略应用错误: ' + e.message, 'error');
+    }
+}
+
+async function loadExperimentInfo() {
+    try {
+        const res = await fetch(`${apiBase}/api/v1/experiments/current`, {
+            headers: { 'Accept': 'application/json' }
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            if (data.experiment_id) {
+                experimentInfo = data;
+                document.getElementById('experimentId').textContent = data.experiment_id;
+                document.getElementById('experimentStatus').textContent = data.status || '-';
+                document.getElementById('expId').textContent = data.experiment_id;
+                document.getElementById('expStatus').textContent = data.status || '-';
+                document.getElementById('expStartTime').textContent = data.start_time || '-';
+            }
+        }
+    } catch (e) {
+        console.warn('Load experiment info failed:', e);
+    }
+}
+
+async function loadCurrentScene() {
+    try {
+        const res = await fetch(`${apiBase}/api/v1/scene/current`, {
+            headers: { 'Accept': 'application/json' }
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            currentScene = data.mode || 'offpeak';
+            document.getElementById('currentMode').textContent = currentScene;
+            document.getElementById('baseLoad').textContent = data.base_load || 10;
+            document.getElementById('burstIntensity').textContent = data.burst_intensity || 0.5;
+            
+            document.querySelectorAll('#btnOffpeak, #btnPeak, #btnIncident').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(`btn${currentScene.charAt(0).toUpperCase() + currentScene.slice(1)}`).classList.add('active');
+        }
+    } catch (e) {
+        console.warn('Load current scene failed:', e);
+    }
+}
+
+async function loadCurrentStrategy() {
+    try {
+        const res = await fetch(`${apiBase}/api/v1/scheduler/current`, {
+            headers: { 'Accept': 'application/json' }
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            document.getElementById('schedulerStrategy').value = data.strategy || 'least_load';
+            document.getElementById('currentStrategy').textContent = data.strategy || 'least_load';
+        }
+    } catch (e) {
+        console.warn('Load current strategy failed:', e);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    checkBackendStatus();
+    connectWebSocket();
+    loadExperimentInfo();
+    loadCurrentScene();
+    loadCurrentStrategy();
+    
+    setInterval(checkBackendStatus, 10000);
+});
+</script>
+
+</body>
+</html>
