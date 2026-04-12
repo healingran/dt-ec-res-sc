@@ -190,6 +190,71 @@
             grid-column: span 8;
         }
 
+        .persist-sim {
+            grid-column: span 5;
+        }
+
+        .persist-events {
+            grid-column: span 7;
+        }
+
+        .sim-state-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        .sim-kv {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+        }
+
+        .sim-kv-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .sim-kv-value {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            word-break: break-all;
+        }
+
+        .events-table-wrap {
+            max-height: 220px;
+            overflow: auto;
+        }
+
+        .events-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+        }
+
+        .events-table th,
+        .events-table td {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .events-table th {
+            color: var(--text-muted);
+            font-weight: 500;
+            position: sticky;
+            top: 0;
+            background: var(--bg-panel);
+        }
+
+        .evt-arrived { color: #38bdf8; }
+        .evt-assigned { color: #a78bfa; }
+        .evt-completed { color: #22c55e; }
+        .evt-timeout { color: #ef4444; }
+
         .nodes-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -527,6 +592,55 @@
         </div>
 
         <div class="monitor-grid">
+            <div class="monitor-panel persist-sim">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" fill="none">
+                            <path d="M4 6h16M4 12h16M4 18h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        运行态势（持久化接口）
+                    </h2>
+                    <span class="panel-badge">/sim/state</span>
+                </div>
+                <div class="sim-state-grid" id="simStateGrid">
+                    <div class="sim-kv"><div class="sim-kv-label">场景模式</div><div class="sim-kv-value" id="simMode">—</div></div>
+                    <div class="sim-kv"><div class="sim-kv-label">调度策略</div><div class="sim-kv-value" id="simStrategy">—</div></div>
+                    <div class="sim-kv"><div class="sim-kv-label">队列待调度</div><div class="sim-kv-value" id="simPending">—</div></div>
+                    <div class="sim-kv"><div class="sim-kv-label">下一任务序号</div><div class="sim-kv-value" id="simNextId">—</div></div>
+                    <div class="sim-kv" style="grid-column: span 2;">
+                        <div class="sim-kv-label">内存实验 ID</div>
+                        <div class="sim-kv-value" id="simExpId">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="monitor-panel persist-events">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="1.5"/>
+                        </svg>
+                        任务事件流（库表记录）
+                    </h2>
+                    <span class="panel-badge">/tasks/history</span>
+                </div>
+                <div class="events-table-wrap scrollbar-thin">
+                    <table class="events-table">
+                        <thead>
+                            <tr>
+                                <th>时间</th>
+                                <th>任务</th>
+                                <th>状态</th>
+                                <th>节点</th>
+                            </tr>
+                        </thead>
+                        <tbody id="taskHistoryBody">
+                            <tr><td colspan="4" style="color:var(--text-muted);">拉取中…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <div class="monitor-panel nodes-panel">
                 <div class="panel-header">
                     <h2 class="panel-title">
@@ -1002,11 +1116,83 @@ function resizeCharts() {
     if (queueLineChart) queueLineChart.resize();
 }
 
+function formatHistoryTime(ts) {
+    if (ts == null || ts === '') return '—';
+    const n = Number(ts);
+    if (Number.isNaN(n)) return String(ts);
+    const d = new Date(n > 1e12 ? n : n * 1000);
+    return isNaN(d.getTime()) ? String(ts) : d.toLocaleString('zh-CN', { hour12: false });
+}
+
+function renderTaskHistoryRows(items) {
+    const tbody = document.getElementById('taskHistoryBody');
+    if (!items || items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-muted);">暂无事件（请先在控制台生成任务并调度）</td></tr>';
+        return;
+    }
+    tbody.innerHTML = items.map((row) => {
+        const st = (row.status || '').toLowerCase();
+        const cls = st === 'arrived' ? 'evt-arrived' : st === 'assigned' ? 'evt-assigned' : st === 'completed' ? 'evt-completed' : st === 'timeout' ? 'evt-timeout' : '';
+        return `<tr>
+            <td>${formatHistoryTime(row.timestamp)}</td>
+            <td>${escapeHtml(String(row.task_id ?? '—'))}</td>
+            <td class="${cls}">${escapeHtml(String(row.status ?? '—'))}</td>
+            <td>${escapeHtml(String(row.node_name ?? '—'))}</td>
+        </tr>`;
+    }).join('');
+}
+
+function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function fetchSimState() {
+    try {
+        const res = await fetch(`${apiBase}/api/v1/sim/state`, { headers: { Accept: 'application/json' } });
+        if (!res.ok) throw new Error('sim/state');
+        const data = await res.json();
+        document.getElementById('simMode').textContent = data.current_mode ?? '—';
+        document.getElementById('simStrategy').textContent = data.scheduler_strategy ?? '—';
+        document.getElementById('simPending').textContent = data.pending_tasks != null ? String(data.pending_tasks) : '—';
+        document.getElementById('simNextId').textContent = data.task_counter_next != null ? String(data.task_counter_next) : '—';
+        const exp = data.experiment;
+        document.getElementById('simExpId').textContent =
+            exp && exp.experiment_id != null ? String(exp.experiment_id) : '—';
+    } catch (e) {
+        document.getElementById('simMode').textContent = '不可用';
+        console.warn('fetchSimState:', e);
+    }
+}
+
+async function fetchTaskHistory() {
+    try {
+        const res = await fetch(`${apiBase}/api/v1/tasks/history?limit=30`, {
+            headers: { Accept: 'application/json' },
+        });
+        if (!res.ok) throw new Error('tasks/history');
+        const data = await res.json();
+        renderTaskHistoryRows(data.items || []);
+    } catch (e) {
+        const tbody = document.getElementById('taskHistoryBody');
+        if (tbody) {
+            tbody.innerHTML =
+                '<tr><td colspan="4" style="color:var(--text-muted);">无法加载任务历史（请确认后端已更新并含 tasks_history 表）</td></tr>';
+        }
+        console.warn('fetchTaskHistory:', e);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     checkBackendStatus();
     connectWebSocket();
+    fetchSimState();
+    fetchTaskHistory();
     
     setInterval(checkBackendStatus, 10000);
+    setInterval(() => {
+        fetchSimState();
+        fetchTaskHistory();
+    }, 5000);
     window.addEventListener('resize', resizeCharts);
     
     setInterval(() => {
