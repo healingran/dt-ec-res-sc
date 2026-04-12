@@ -13,6 +13,17 @@ from datetime import datetime
 import os
 import sys
 
+# 保证从项目根目录执行时可导入 backend
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
+from backend.experiment_export_last import (  # noqa: E402
+    build_last_experiment_export_dict,
+    suggested_export_filename,
+)
+
+
 def export_last_experiment(
     db_path: str = "smart_city.db",
     output_format: str = "json",
@@ -34,110 +45,22 @@ def export_last_experiment(
         sys.exit(1)
     
     try:
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row  # 允许以字典形式访问行
-        cur = conn.cursor()
-        
-        # 1. 获取最近一次已结束的实验（主线 stop_experiment 写入 'stopped'；兼容旧数据 'finished'）
-        cur.execute("""
-            SELECT id, experiment_name, start_time, end_time, status
-            FROM experiment
-            WHERE status IN ('stopped', 'finished') AND end_time IS NOT NULL
-            ORDER BY end_time DESC
-            LIMIT 1
-        """)
-        
-        exp_row = cur.fetchone()
-        
-        if not exp_row:
-            print("❌ 未找到已完成的实验记录")
-            print("提示：请确保有 status IN ('stopped','finished') 且 end_time 不为空的实验记录")
-            sys.exit(1)
-        
-        exp_data = dict(exp_row)
-        exp_id = exp_data['id']
-        exp_name = exp_data['experiment_name']
-        
+        export_data = build_last_experiment_export_dict(db_path)
+        export_data["export_info"]["format"] = output_format
+
+        exp0 = export_data["experiments"][0]
+        exp_id = exp0["id"]
+        exp_name = exp0["name"]
+        node_count = export_data["export_info"]["node_count"]
+
         print(f"✅ 找到实验记录:")
         print(f"   - ID: {exp_id}")
         print(f"   - 名称: {exp_name}")
-        print(f"   - 状态: {exp_data['status']}")
-        print(f"   - 时间范围: {exp_data['start_time']} 到 {exp_data['end_time']}")
-        
-        # 2. 获取该实验期间的节点记录
-        cur.execute("""
-            SELECT node_name, cpu, mem, status, timestamp
-            FROM nodes
-            WHERE timestamp >= ? AND timestamp <= ?
-            ORDER BY timestamp ASC
-        """, (exp_data['start_time'], exp_data['end_time']))
-        
-        node_rows = cur.fetchall()
-        node_count = len(node_rows)
+        print(f"   - 状态: {exp0['status']}")
+        print(f"   - 时间范围: {exp0['start_time']} 到 {exp0['end_time']}")
         print(f"📊 共找到 {node_count} 条节点记录")
-        
-        if node_count == 0:
-            print("⚠️  警告：该实验没有找到节点记录")
-            # 如果没有节点记录，查找所有节点记录
-            cur.execute("""
-                SELECT node_name, cpu, mem, status, timestamp
-                FROM nodes
-                ORDER BY timestamp ASC
-            """)
-            node_rows = cur.fetchall()
-            node_count = len(node_rows)
-            print(f"📊 改为导出所有节点记录：{node_count} 条")
-        
-        # 2b. 同一时间窗内的任务事件历史（若表存在）
-        task_events = []
-        try:
-            cur.execute(
-                """
-                SELECT task_id, status, node_name, timestamp
-                FROM tasks_history
-                WHERE timestamp >= ? AND timestamp <= ?
-                ORDER BY timestamp ASC
-                """,
-                (exp_data["start_time"], exp_data["end_time"]),
-            )
-            task_events = [dict(r) for r in cur.fetchall()]
-        except sqlite3.OperationalError:
-            pass
 
-        # 3. 构建导出数据结构
-        export_data = {
-            "export_info": {
-                "timestamp": datetime.now().isoformat(),
-                "format": output_format,
-                "experiment_count": 1,
-                "node_count": node_count,
-                "tasks_history_count": len(task_events),
-            },
-            "experiments": [{
-                "id": exp_data['id'],
-                "name": exp_data['experiment_name'],
-                "start_time": exp_data['start_time'],
-                "end_time": exp_data['end_time'],
-                "status": exp_data['status']
-            }],
-            "nodes": [
-                {
-                    "node_name": row['node_name'],
-                    "cpu": row['cpu'],
-                    "mem": row['mem'],
-                    "status": row['status'],
-                    "timestamp": row['timestamp']
-                }
-                for row in node_rows
-            ],
-            "tasks_history": task_events,
-        }
-        
-        # 4. 生成文件名
-        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_name = "".join(c for c in exp_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
-        safe_name = safe_name.replace(' ', '_')
-        filename = f"experiment_{exp_id}_{safe_name}_{timestamp_str}.{output_format}"
+        filename = suggested_export_filename(export_data, output_format)
         filepath = os.path.join(output_dir, filename)
         
         # 5. 导出文件
@@ -205,9 +128,11 @@ def export_last_experiment(
             print(f"❌ 不支持的格式：{output_format}")
             print("   支持格式：json, csv")
             sys.exit(1)
-        
-        conn.close()
-        
+
+    except ValueError as e:
+        print(f"❌ {e}")
+        print("提示：请确保有 status IN ('stopped','finished') 且 end_time 不为空的实验记录")
+        sys.exit(1)
     except sqlite3.Error as e:
         print(f"❌ 数据库错误: {e}")
         sys.exit(1)

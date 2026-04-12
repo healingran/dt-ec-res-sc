@@ -1,5 +1,7 @@
 import asyncio
 import copy
+import io
+import json
 import random
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -7,12 +9,18 @@ from typing import List, Optional
 
 from fastapi import APIRouter, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from algorithms.predictor import get_predictions
 from algorithms.scheduler import execute_schedule
 from backend import dashboard_state
 from backend import database as db
+from backend.database import DB_PATH
+from backend.experiment_export_last import (
+    build_last_experiment_export_dict,
+    suggested_export_filename,
+)
 from backend.models import nodes, task_counter, tasks
 from backend.sim_state import build_sim_state_snapshot
 from backend.tasks_history import get_task_history, record_task_arrival, task_public_id
@@ -602,6 +610,24 @@ def get_experiment_nodes_history_v1(experiment_id: int, limit: int = 500, offset
         return db.get_nodes_history(experiment_id, limit=limit, offset=offset)
     except Exception as e:
         return {"error": str(e)}
+
+
+@api_v1.get("/experiments/export/last")
+def download_last_experiment_export():
+    """与 `python scripts/export_last_experiment.py` 同源：下载最近一次已完成实验的 JSON。"""
+    try:
+        data = build_last_experiment_export_dict(DB_PATH)
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"error": str(e)})
+    raw = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+    fname = suggested_export_filename(data, "json")
+    return StreamingResponse(
+        io.BytesIO(raw),
+        media_type="application/json; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{fname}"',
+        },
+    )
 
 
 # ---- 兼容旧路径：供静态前端直接访问（不带 /api/v1 前缀） ----

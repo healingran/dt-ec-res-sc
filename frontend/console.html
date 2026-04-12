@@ -769,6 +769,7 @@
                             <input type="text" class="input-field" id="sqliteExpName" placeholder="实验名称" style="width: 220px; max-width: 100%;">
                             <button type="button" class="btn btn-primary" onclick="sqliteCreateExperiment()">创建</button>
                             <button type="button" class="btn" onclick="sqliteListExperiments()">刷新列表</button>
+                            <button type="button" class="btn btn-success" onclick="sqliteDownloadLastExport()" title="与 python scripts/export_last_experiment.py 相同数据">一键导出节点历史（JSON）</button>
                         </div>
                     </div>
                     <div class="control-group">
@@ -790,7 +791,7 @@
                         </div>
                     </div>
                     <div class="info-box">
-                        <strong>提示：</strong>开始/停止后可用 <code style="font-size:0.85em;">python scripts/export_last_experiment.py</code> 导出节点历史；任务事件见大屏「任务事件流」。
+                        <strong>提示：</strong>实验需先<strong>开始</strong>再<strong>停止</strong>后，点上方「一键导出」下载 JSON（同命令行脚本）；任务事件见大屏「任务事件流」。
                     </div>
                 </div>
             </div>
@@ -1200,6 +1201,46 @@ async function createTaskJson() {
     } catch (e) {
         log('JSON 任务异常: ' + e.message, 'error');
         showToast(e.message, 'error');
+    }
+}
+
+async function sqliteDownloadLastExport() {
+    try {
+        const res = await fetch(`${apiBase}/api/v1/experiments/export/last`, {
+            method: 'GET',
+            headers: { Accept: 'application/json' },
+        });
+        if (!res.ok) {
+            let msg = '导出失败';
+            try {
+                const err = await res.json();
+                if (err.error) msg = err.error;
+            } catch (e) {
+                msg = res.statusText || msg;
+            }
+            log('导出失败: ' + msg, 'error');
+            showToast(msg, 'error');
+            return;
+        }
+        const blob = await res.blob();
+        let name = 'experiment.json';
+        const cd = res.headers.get('Content-Disposition');
+        if (cd) {
+            const m = cd.match(/filename="?([^";]+)"?/i);
+            if (m) name = m[1].trim();
+        }
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(a.href);
+        log('已下载: ' + name, 'success');
+        showToast('已开始下载 JSON', 'success');
+    } catch (e) {
+        log('导出异常: ' + e.message, 'error');
+        showToast(e.message || '导出失败', 'error');
     }
 }
 
