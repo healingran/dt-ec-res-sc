@@ -611,6 +611,10 @@
                         <div class="sim-kv-label">内存实验 ID</div>
                         <div class="sim-kv-value" id="simExpId">—</div>
                     </div>
+                    <div class="sim-kv" style="grid-column: 1 / -1;">
+                        <div class="sim-kv-label">LSTM 预测负载序列（GET /api/v1/predict?steps=10，前 8 步）</div>
+                        <div class="sim-kv-value" id="predictSnippet" style="font-size: 0.8rem; font-weight: 500; line-height: 1.4;">—</div>
+                    </div>
                 </div>
             </div>
 
@@ -1182,16 +1186,42 @@ async function fetchTaskHistory() {
     }
 }
 
+async function fetchPredictSnippet() {
+    const el = document.getElementById('predictSnippet');
+    if (!el) return;
+    try {
+        const res = await fetch(`${apiBase}/api/v1/predict?steps=10`, {
+            headers: { Accept: 'application/json' },
+        });
+        if (!res.ok) throw new Error('predict');
+        const data = await res.json();
+        const pl = data.predicted_load || [];
+        if (Array.isArray(pl) && pl.length) {
+            el.textContent = pl
+                .slice(0, 8)
+                .map((x) => Number(x).toFixed(3))
+                .join(' → ');
+        } else {
+            el.textContent = JSON.stringify(data).slice(0, 200);
+        }
+    } catch (e) {
+        el.textContent = '不可用';
+        console.warn('fetchPredictSnippet:', e);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     checkBackendStatus();
     connectWebSocket();
     fetchSimState();
     fetchTaskHistory();
+    fetchPredictSnippet();
     
     setInterval(checkBackendStatus, 10000);
     setInterval(() => {
         fetchSimState();
         fetchTaskHistory();
+        fetchPredictSnippet();
     }, 5000);
     window.addEventListener('resize', resizeCharts);
     

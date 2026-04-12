@@ -415,6 +415,49 @@
             background: #3b82f6;
         }
 
+        .schedule-result-pre {
+            margin: 0;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: var(--radius-sm);
+            font-family: Consolas, Monaco, monospace;
+            font-size: 0.8rem;
+            color: #cbd5e1;
+            max-height: 200px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .sqlite-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+        }
+
+        .sqlite-table th,
+        .sqlite-table td {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .sqlite-table th {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .sqlite-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .sqlite-actions .btn {
+            padding: 6px 10px;
+            font-size: 0.8rem;
+        }
+
     </style>
 </head>
 <body>
@@ -629,7 +672,8 @@
                             <option value="least_load">least_load - 最少负载优先</option>
                             <option value="round_robin">round_robin - 轮询调度</option>
                             <option value="shortest_queue">shortest_queue - 最短队列优先</option>
-                            <option value="sla_predict">sla_predict - SLA预测调度</option>
+                            <option value="predict_least_load">predict_least_load - 预测+负载</option>
+                            <option value="sla_predict">sla_predict - SLA 预测调度</option>
                         </select>
                     </div>
                     <div class="control-group">
@@ -654,6 +698,99 @@
                     </div>
                     <div class="info-box">
                         <strong>当前策略：</strong><span id="currentStrategy">least_load</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="console-panel">
+                <div class="panel-header">
+                    <svg class="panel-icon" viewBox="0 0 32 32" fill="none">
+                        <path d="M8 10h16M8 16h12M8 22h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <h2 class="panel-title">最近一次调度结果</h2>
+                </div>
+                <div class="panel-content">
+                    <p class="control-label" style="margin-top:0;">含 SLA 策略时的估算时延、是否满足 deadline、score 等（JSON）</p>
+                    <pre class="schedule-result-pre" id="scheduleResultPre">尚无调度记录。点击「执行一次调度」后在此查看完整返回。</pre>
+                </div>
+            </div>
+
+            <div class="console-panel">
+                <div class="panel-header">
+                    <svg class="panel-icon" viewBox="0 0 32 32" fill="none">
+                        <path d="M16 4v8M8 12h16M8 20h16M12 24h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <h2 class="panel-title">JSON 创建任务（SLA 字段）</h2>
+                </div>
+                <div class="panel-content">
+                    <div class="control-group">
+                        <div class="control-label">对应接口 POST /api/v1/tasks</div>
+                        <div class="control-row" style="align-items: flex-end; flex-wrap: wrap;">
+                            <div class="control-group" style="min-width:100px;">
+                                <span class="control-label">cpu_need</span>
+                                <input type="number" class="input-field" id="jsonCpuNeed" value="12" min="0" step="0.1">
+                            </div>
+                            <div class="control-group" style="min-width:140px;">
+                                <span class="control-label">task_type</span>
+                                <select class="select-field" id="jsonTaskType" style="width:100%;">
+                                    <option value="sensor_fusion">sensor_fusion</option>
+                                    <option value="collision_warning">collision_warning</option>
+                                    <option value="traffic_optimization">traffic_optimization</option>
+                                </select>
+                            </div>
+                            <div class="control-group" style="min-width:100px;">
+                                <span class="control-label">deadline_ms</span>
+                                <input type="number" class="input-field" id="jsonDeadlineMs" value="200" min="1">
+                            </div>
+                            <div class="control-group" style="min-width:100px;">
+                                <span class="control-label">data_size_kb</span>
+                                <input type="number" class="input-field" id="jsonDataKb" value="512" min="0" step="1">
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="createTaskJson()">提交 JSON 任务</button>
+                        </div>
+                    </div>
+                    <div class="info-box">
+                        <strong>说明：</strong>与简单 query 创建不同，可带 deadline 与数据量，供 sla_predict 估算传输时延。
+                    </div>
+                </div>
+            </div>
+
+            <div class="console-panel">
+                <div class="panel-header">
+                    <svg class="panel-icon" viewBox="0 0 32 32" fill="none">
+                        <path d="M6 6h20v20H6z M10 10h12v4H10z" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>
+                    <h2 class="panel-title">SQLite 实验（落库 · 复盘导出）</h2>
+                </div>
+                <div class="panel-content">
+                    <div class="control-group">
+                        <div class="control-label">新建实验（POST /api/v1/experiments）</div>
+                        <div class="control-row">
+                            <input type="text" class="input-field" id="sqliteExpName" placeholder="实验名称" style="width: 220px; max-width: 100%;">
+                            <button type="button" class="btn btn-primary" onclick="sqliteCreateExperiment()">创建</button>
+                            <button type="button" class="btn" onclick="sqliteListExperiments()">刷新列表</button>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">实验列表（与内存「开始实验」独立，数据写入 smart_city.db）</div>
+                        <div style="overflow:auto; max-height: 220px;">
+                            <table class="sqlite-table" id="sqliteExpTable">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>名称</th>
+                                        <th>状态</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sqliteExpTbody">
+                                    <tr><td colspan="4" style="color:var(--text-muted);">点击「刷新列表」加载</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="info-box">
+                        <strong>提示：</strong>开始/停止后可用 <code style="font-size:0.85em;">python scripts/export_last_experiment.py</code> 导出节点历史；任务事件见大屏「任务事件流」。
                     </div>
                 </div>
             </div>
@@ -1014,6 +1151,162 @@ async function resetExperiment() {
     }
 }
 
+function setScheduleResultPre(data) {
+    const el = document.getElementById('scheduleResultPre');
+    if (!el) return;
+    try {
+        el.textContent = JSON.stringify(data, null, 2);
+    } catch (e) {
+        el.textContent = String(data);
+    }
+}
+
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+async function createTaskJson() {
+    const cpu_need = parseFloat(document.getElementById('jsonCpuNeed').value);
+    const task_type = document.getElementById('jsonTaskType').value;
+    const deadline_ms = parseInt(document.getElementById('jsonDeadlineMs').value, 10);
+    const data_size_kb = parseFloat(document.getElementById('jsonDataKb').value);
+    if (Number.isNaN(cpu_need) || cpu_need < 0) {
+        showToast('请填写有效 cpu_need', 'warning');
+        return;
+    }
+    try {
+        const res = await fetch(`${apiBase}/api/v1/tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+                cpu_need,
+                task_type,
+                deadline_ms: Number.isNaN(deadline_ms) ? 100 : deadline_ms,
+                data_size_kb: Number.isNaN(data_size_kb) ? 256 : data_size_kb,
+            }),
+        });
+        const data = await res.json();
+        if (res.ok && !data.error) {
+            log('JSON 任务已创建: ' + JSON.stringify(data.task || data), 'success');
+            showToast('JSON 任务已入队', 'success');
+        } else {
+            log('JSON 任务失败: ' + (data.error || data.detail || res.status), 'error');
+            showToast('创建失败', 'error');
+        }
+    } catch (e) {
+        log('JSON 任务异常: ' + e.message, 'error');
+        showToast(e.message, 'error');
+    }
+}
+
+async function sqliteCreateExperiment() {
+    const name = document.getElementById('sqliteExpName').value.trim();
+    if (!name) {
+        showToast('请输入实验名称', 'warning');
+        return;
+    }
+    try {
+        const res = await fetch(`${apiBase}/api/v1/experiments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ experiment_name: name }),
+        });
+        const data = await res.json();
+        if (res.ok && !data.error) {
+            log(`SQLite 实验已创建 id=${data.id}`, 'success');
+            showToast('已创建 SQLite 实验', 'success');
+            sqliteListExperiments();
+        } else {
+            log('创建实验失败: ' + (data.error || data.detail || res.status), 'error');
+            showToast('创建失败', 'error');
+        }
+    } catch (e) {
+        log('创建实验异常: ' + e.message, 'error');
+        showToast(e.message, 'error');
+    }
+}
+
+async function sqliteListExperiments() {
+    try {
+        const res = await fetch(`${apiBase}/api/v1/experiments`, {
+            headers: { Accept: 'application/json' },
+        });
+        const data = await res.json();
+        const rows = data.experiments || [];
+        const tbody = document.getElementById('sqliteExpTbody');
+        tbody.innerHTML = '';
+        if (rows.length === 0) {
+            tbody.innerHTML =
+                '<tr><td colspan="4" style="color:var(--text-muted);">暂无记录</td></tr>';
+            return;
+        }
+        rows.forEach((exp) => {
+            const tr = document.createElement('tr');
+            const id = exp.id;
+            tr.innerHTML =
+                '<td>' +
+                id +
+                '</td><td>' +
+                escapeHtml(String(exp.experiment_name ?? '')) +
+                '</td><td>' +
+                escapeHtml(String(exp.status ?? '')) +
+                '</td><td class="sqlite-actions">' +
+                '<button type="button" class="btn btn-success" data-sqlite-start="' +
+                id +
+                '">开始</button> ' +
+                '<button type="button" class="btn btn-warning" data-sqlite-stop="' +
+                id +
+                '">停止</button>' +
+                '</td>';
+            tbody.appendChild(tr);
+        });
+        tbody.querySelectorAll('[data-sqlite-start]').forEach((btn) => {
+            btn.addEventListener('click', () => sqliteStartExp(Number(btn.getAttribute('data-sqlite-start'))));
+        });
+        tbody.querySelectorAll('[data-sqlite-stop]').forEach((btn) => {
+            btn.addEventListener('click', () => sqliteStopExp(Number(btn.getAttribute('data-sqlite-stop'))));
+        });
+    } catch (e) {
+        log('列表加载失败: ' + e.message, 'error');
+    }
+}
+
+async function sqliteStartExp(id) {
+    try {
+        const res = await fetch(`${apiBase}/api/v1/experiments/${id}/start`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+            log(`SQLite 实验 ${id} 已开始`, 'success');
+            showToast('实验已开始（计时）', 'success');
+            sqliteListExperiments();
+        } else {
+            log('开始失败: ' + (data.error || data.detail || res.status), 'error');
+        }
+    } catch (e) {
+        log('开始异常: ' + e.message, 'error');
+    }
+}
+
+async function sqliteStopExp(id) {
+    try {
+        const res = await fetch(`${apiBase}/api/v1/experiments/${id}/stop`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+            log(`SQLite 实验 ${id} 已停止`, 'success');
+            showToast('实验已停止，可导出节点历史', 'success');
+            sqliteListExperiments();
+        } else {
+            log('停止失败: ' + (data.error || data.detail || res.status), 'error');
+        }
+    } catch (e) {
+        log('停止异常: ' + e.message, 'error');
+    }
+}
+
 async function runScheduleOnce() {
     const strategy = document.getElementById('schedulerStrategy').value;
     try {
@@ -1022,6 +1315,7 @@ async function runScheduleOnce() {
             { method: 'POST' }
         );
         const data = await res.json();
+        setScheduleResultPre(data);
         if (res.ok && data.message && !data.error) {
             const node = data.node_name || '-';
             const before = data.node_cpu_before != null ? data.node_cpu_before : '?';
@@ -1031,6 +1325,9 @@ async function runScheduleOnce() {
             if (cpuNeed !== '') line += `，任务 cpu_need=${cpuNeed}`;
             if (data.estimated_total_latency_ms != null) {
                 line += `，预估时延≈${data.estimated_total_latency_ms}ms`;
+            }
+            if (data.meet_deadline === false) {
+                line += '，⚠未满足 deadline';
             }
             log(line, 'success');
             showToast('已派发队列中的 1 个任务', 'success');
@@ -1063,6 +1360,7 @@ async function runScheduleUntilEmpty() {
                 { method: 'POST' }
             );
             const data = await res.json();
+            setScheduleResultPre(data);
             const errMsg = data.error ? String(data.error) : '';
             if (errMsg.includes('没有待处理') || errMsg.includes('待处理的任务')) {
                 break;
@@ -1186,6 +1484,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadExperimentInfo();
     loadCurrentScene();
     loadCurrentStrategy();
+    sqliteListExperiments();
     
     setInterval(checkBackendStatus, 10000);
 });

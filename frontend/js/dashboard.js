@@ -215,8 +215,21 @@ async function postSchedule() {
             headers: { Accept: 'application/json' }
         });
         const data = await res.json();
-        if (data.error) showToast('调度：' + data.error);
-        else showToast(data.message || '调度已请求');
+        if (data.error) {
+            showToast('调度：' + data.error);
+            return;
+        }
+        let msg = data.message || '调度已请求';
+        if (data.node_name) msg += ` → ${data.node_name}`;
+        if (data.estimated_total_latency_ms != null) {
+            msg += ` · 估算时延 ${data.estimated_total_latency_ms}ms`;
+        }
+        if (data.meet_deadline === false) {
+            msg += ' · deadline 未满足';
+        } else if (data.meet_deadline === true) {
+            msg += ' · deadline OK';
+        }
+        showToast(msg);
     } catch (e) {
         showToast('调度失败：' + (e && e.message));
     }
@@ -224,7 +237,7 @@ async function postSchedule() {
 
 async function postDemoTask() {
     try {
-        const res = await fetch(`${apiBase()}/task?cpu_need=8`, {
+        const res = await fetch(`${apiBase()}/task?cpu_need=8&task_type=sensor_fusion&deadline_ms=200&data_size_kb=256`, {
             method: 'POST',
             headers: { Accept: 'application/json' }
         });

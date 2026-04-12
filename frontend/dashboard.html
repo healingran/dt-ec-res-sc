@@ -28,6 +28,9 @@
         <select id="strategySelect" class="dash-select">
             <option value="least_load">最低负载 (least_load)</option>
             <option value="round_robin">轮询 (round_robin)</option>
+            <option value="shortest_queue">最短队列 (shortest_queue)</option>
+            <option value="predict_least_load">预测+负载 (predict_least_load)</option>
+            <option value="sla_predict">SLA 预测 (sla_predict)</option>
             <option value="random">随机 (random)</option>
         </select>
         <button type="button" id="btnSchedule" class="dash-btn dash-btn--primary">执行调度</button>
