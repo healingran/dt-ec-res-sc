@@ -3,7 +3,7 @@ import copy
 import random
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +14,8 @@ from algorithms.scheduler import execute_schedule
 from backend import dashboard_state
 from backend import database as db
 from backend.models import nodes, task_counter, tasks
+from backend.sim_state import build_sim_state_snapshot
+from backend.tasks_history import get_task_history, record_task_arrival, task_public_id
 from backend.simulator import start_simulator
 from backend.ws_manager import manager as ws_manager
 
@@ -266,6 +268,10 @@ def generate_tasks(request: TaskGenerateRequest):
             new_task["estimated_delay"] = random.randint(3, 25)
         
         tasks.append(new_task)
+        try:
+            record_task_arrival(task_public_id(new_task))
+        except Exception:
+            pass
         task_counter["current"] += 1
         generated += 1
     
@@ -298,6 +304,10 @@ def trigger_incident(request: IncidentTriggerRequest):
         }
         
         tasks.append(new_task)
+        try:
+            record_task_arrival(task_public_id(new_task))
+        except Exception:
+            pass
         task_counter["current"] += 1
         generated += 1
     
@@ -389,7 +399,13 @@ def set_scheduler_strategy(request: SchedulerStrategyRequest):
     """设置调度策略"""
     global current_scheduler_strategy
     
-    valid_strategies = ["least_load", "round_robin", "shortest_queue", "sla_predict"]
+    valid_strategies = [
+        "least_load",
+        "round_robin",
+        "shortest_queue",
+        "predict_least_load",
+        "sla_predict",
+    ]
     if request.strategy not in valid_strategies:
         return {"error": f"Invalid strategy: {request.strategy}"}
     
@@ -499,6 +515,10 @@ def create_new_task_v1(
         "status": "waiting",
     }
     tasks.append(new_task)
+    try:
+        record_task_arrival(task_public_id(new_task))
+    except Exception:
+        pass
     task_counter["current"] += 1
     return {"message": "任务创建成功", "task": new_task}
 
@@ -517,6 +537,29 @@ def create_new_task_json_v1(payload: TaskCreate):
 @api_v1.post("/schedule")
 def trigger_schedule_v1(strategy: str = "least_load"):
     return execute_schedule(strategy)
+
+
+@api_v1.get("/tasks/history")
+def get_tasks_history_v1(task_id: Optional[str] = None, limit: int = 100):
+    """任务事件历史（到达、分配、完成、超时），供复盘与导出。"""
+    try:
+        items = get_task_history(task_id=task_id, limit=limit)
+    except Exception as e:
+        return {"error": str(e), "items": []}
+    return {"count": len(items), "items": items}
+
+
+@api_v1.get("/sim/state")
+def get_sim_state_v1():
+    """与文档一致的模拟器聚合状态（数据源为当前 main 全局状态）。"""
+    return build_sim_state_snapshot(
+        scene_mode=current_scene_mode,
+        scene_config=scene_config,
+        pending_task_count=len(tasks),
+        task_counter_next=int(task_counter["current"]),
+        scheduler_strategy=current_scheduler_strategy,
+        experiment=current_experiment,
+    )
 
 
 @api_v1.get("/predict")

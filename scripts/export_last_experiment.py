@@ -88,13 +88,30 @@ def export_last_experiment(
             node_count = len(node_rows)
             print(f"📊 改为导出所有节点记录：{node_count} 条")
         
+        # 2b. 同一时间窗内的任务事件历史（若表存在）
+        task_events = []
+        try:
+            cur.execute(
+                """
+                SELECT task_id, status, node_name, timestamp
+                FROM tasks_history
+                WHERE timestamp >= ? AND timestamp <= ?
+                ORDER BY timestamp ASC
+                """,
+                (exp_data["start_time"], exp_data["end_time"]),
+            )
+            task_events = [dict(r) for r in cur.fetchall()]
+        except sqlite3.OperationalError:
+            pass
+
         # 3. 构建导出数据结构
         export_data = {
             "export_info": {
                 "timestamp": datetime.now().isoformat(),
                 "format": output_format,
                 "experiment_count": 1,
-                "node_count": node_count
+                "node_count": node_count,
+                "tasks_history_count": len(task_events),
             },
             "experiments": [{
                 "id": exp_data['id'],
@@ -112,7 +129,8 @@ def export_last_experiment(
                     "timestamp": row['timestamp']
                 }
                 for row in node_rows
-            ]
+            ],
+            "tasks_history": task_events,
         }
         
         # 4. 生成文件名
@@ -156,6 +174,32 @@ def export_last_experiment(
                         "timestamp": node["timestamp"]
                     })
             print(f"📄 节点信息 CSV 已导出：{nodes_filepath}")
+
+            if export_data.get("tasks_history"):
+                th_filepath = filepath.replace(".csv", "_tasks_history.csv")
+                with open(th_filepath, "w", newline="", encoding="utf-8") as f:
+                    writer = csv.DictWriter(
+                        f,
+                        fieldnames=[
+                            "experiment_id",
+                            "task_id",
+                            "status",
+                            "node_name",
+                            "timestamp",
+                        ],
+                    )
+                    writer.writeheader()
+                    for ev in export_data["tasks_history"]:
+                        writer.writerow(
+                            {
+                                "experiment_id": exp_id,
+                                "task_id": ev.get("task_id"),
+                                "status": ev.get("status"),
+                                "node_name": ev.get("node_name"),
+                                "timestamp": ev.get("timestamp"),
+                            }
+                        )
+                print(f"📄 任务事件 CSV 已导出：{th_filepath}")
             
         else:
             print(f"❌ 不支持的格式：{output_format}")

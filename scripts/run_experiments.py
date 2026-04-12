@@ -107,7 +107,13 @@ def run_one(cfg: ExperimentRunConfig, out_dir: str) -> None:
 def main():
     # 默认任务序列：可按需要调整
     tasks = [5, 3, 8, 2, 6, 4, 7, 1, 9, 2]
-    strategies = ["least_load", "round_robin", "shortest_queue", "predict_least_load"]
+    strategies = [
+        "least_load",
+        "round_robin",
+        "shortest_queue",
+        "predict_least_load",
+        "sla_predict",
+    ]
 
     root = os.path.join("algorithms", "output", "experiments", _ts())
     for strat in strategies:

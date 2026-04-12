@@ -2,12 +2,13 @@
 
 ## 📊 表结构概览
 
-本项目包含两个核心数据表，用于存储实验记录和节点监控数据：
+本项目包含核心数据表，用于存储实验记录、节点监控数据与任务级事件：
 
 | 表名 | 用途 | 记录数（示例） |
 |------|------|----------------|
 | `experiment` | 存储实验元数据 | 实验个数（如 5 个） |
 | `nodes` | 存储节点实时监控数据 | 节点快照数（如 500 条） |
+| `tasks_history` | 任务事件（到达、分配、完成、超时） | 与调度次数相关 |
 
 ## 📋 1. 实验记录表（experiment）
 
@@ -38,6 +39,22 @@
 **索引**：
 - `idx_nodes_node_name`：加速按节点名查询
 - `idx_nodes_timestamp`：加速按时间范围查询
+
+---
+
+## 📋 3. 任务事件表（tasks_history）
+
+| 字段名 | 类型 | 约束 | 说明 | 示例值 |
+|--------|------|------|------|--------|
+| `id` | INTEGER | PRIMARY KEY AUTOINCREMENT | 行号 | 1, 2, … |
+| `task_id` | TEXT | NOT NULL | 任务标识（与内存队列中 `task_id` 或 `id` 一致） | `task_12`, `42` |
+| `status` | TEXT | NOT NULL | `arrived` / `assigned` / `completed` / `timeout` | `assigned` |
+| `node_name` | TEXT | NULL | 分配到的边缘节点名（仅 `assigned` 时有意义） | `Edge-Node-02` |
+| `timestamp` | REAL | NOT NULL | Unix 时间戳 | 1743840123.456 |
+
+**索引**：`idx_tasks_history_task_id`、`idx_tasks_history_ts`
+
+**与实验关联**：与 `nodes` 相同，按**时间窗**与 `experiment.start_time`～`end_time` 对齐查询；导出见 `scripts/export_last_experiment.py`。
 
 ---
 

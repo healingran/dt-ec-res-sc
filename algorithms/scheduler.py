@@ -1,6 +1,7 @@
 # algorithms/scheduler.py
 import random
 from backend.models import nodes, tasks  # 跨文件夹去 backend 拿数据
+from backend.tasks_history import record_task_assigned, task_public_id
 from algorithms.predictive_policy import pick_node_by_prediction
 from algorithms.realtime_predictor import default_predictor
 
@@ -166,4 +167,10 @@ def execute_schedule(strategy: str):
                 "predicted_pressure": best_meta["predicted_pressure"],
             }
         )
+    try:
+        record_task_assigned(
+            task_public_id(current_task), str(target_node.get("name") or "")
+        )
+    except Exception:
+        pass
     return resp
