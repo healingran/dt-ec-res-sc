@@ -1,6 +1,8 @@
 import asyncio
 import copy
+import random
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, FastAPI, WebSocket, WebSocketDisconnect
@@ -68,10 +70,13 @@ async def _dashboard_broadcast_loop() -> None:
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     task = asyncio.create_task(_dashboard_broadcast_loop())
+    monitor_task = asyncio.create_task(_monitor_broadcast_loop())
     yield
     task.cancel()
+    monitor_task.cancel()
     try:
         await task
+        await monitor_task
     except asyncio.CancelledError:
         pass
 
@@ -119,6 +124,353 @@ class TaskCreate(BaseModel):
     task_type: str = Field("sensor_fusion")
     deadline_ms: int = Field(100, ge=1)
     data_size_kb: float = Field(256.0, ge=0)
+
+
+class SceneSwitchRequest(BaseModel):
+    mode: str
+
+
+class TaskGenerateRequest(BaseModel):
+    count: int = 10
+
+
+class TaskBatchRequest(BaseModel):
+    count: int = 50
+
+
+class IncidentTriggerRequest(BaseModel):
+    count: int = 100
+
+
+class SchedulerStrategyRequest(BaseModel):
+    strategy: str
+
+
+class ExperimentStopRequest(BaseModel):
+    experiment_id: str
+
+
+# 全局状态
+current_scene_mode = "offpeak"
+current_scheduler_strategy = "least_load"
+current_experiment = None
+scene_config = {
+    "offpeak": {"base_load": 10, "burst_intensity": 0.5},
+    "peak": {"base_load": 50, "burst_intensity": 0.8},
+    "incident": {"base_load": 80, "burst_intensity": 1.0}
+}
+_monitor_ws_clients: List[WebSocket] = []
+
+
+async def _monitor_broadcast_loop() -> None:
+    """实时大屏广播循环：每2秒推送节点和任务更新"""
+    while True:
+        await asyncio.sleep(2)
+        if not _monitor_ws_clients:
+            continue
+        
+        payload_nodes = {
+            "type": "nodes_update",
+            "nodes": copy.deepcopy(nodes)
+        }
+        
+        payload_tasks = {
+            "type": "tasks_update",
+            "tasks": copy.deepcopy(tasks)
+        }
+        
+        dead: List[WebSocket] = []
+        for ws in list(_monitor_ws_clients):
+            try:
+                await ws.send_json(payload_nodes)
+                await ws.send_json(payload_tasks)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            if ws in _monitor_ws_clients:
+                _monitor_ws_clients.remove(ws)
+
+
+@api_v1.get("/health")
+def health_check():
+    """健康检查接口"""
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+
+@api_v1.get("/scene/current")
+def get_current_scene():
+    """获取当前场景模式"""
+    config = scene_config.get(current_scene_mode, scene_config["offpeak"])
+    return {
+        "mode": current_scene_mode,
+        "base_load": config["base_load"],
+        "burst_intensity": config["burst_intensity"]
+    }
+
+
+@api_v1.post("/scene/switch")
+def switch_scene(request: SceneSwitchRequest):
+    """切换场景模式"""
+    global current_scene_mode
+    if request.mode not in scene_config:
+        return {"error": f"Invalid scene mode: {request.mode}"}
+    
+    current_scene_mode = request.mode
+    config = scene_config[current_scene_mode]
+    
+    # 更新节点负载以反映场景变化
+    for node in nodes:
+        base_load = config["base_load"]
+        variation = random.uniform(-10, 10)
+        node["cpu"] = max(0, min(100, base_load + variation))
+        node["mem"] = max(0, min(100, base_load * 0.8 + variation))
+    
+    return {
+        "mode": current_scene_mode,
+        "base_load": config["base_load"],
+        "burst_intensity": config["burst_intensity"],
+        "message": f"Scene switched to {current_scene_mode}"
+    }
+
+
+@api_v1.post("/tasks/generate")
+def generate_tasks(request: TaskGenerateRequest):
+    """生成指定数量的任务"""
+    task_types = ["normal", "compute", "io", "collision_warning"]
+    generated = 0
+    
+    for _ in range(request.count):
+        task_type = random.choices(
+            task_types, 
+            weights=[0.6, 0.2, 0.15, 0.05] if current_scene_mode != "incident" else [0.3, 0.2, 0.2, 0.3],
+            k=1
+        )[0]
+        
+        cpu_need = random.uniform(5, 30)
+        if task_type == "collision_warning":
+            cpu_need = random.uniform(10, 50)
+        
+        new_task = {
+            "task_id": f"task_{task_counter['current']}",
+            "cpu_need": cpu_need,
+            "task_type": task_type,
+            "status": "waiting",
+            "created_at": datetime.now().isoformat(),
+            "deadline": None,
+            "estimated_delay": None
+        }
+        
+        if task_type == "collision_warning":
+            deadline_seconds = random.randint(5, 30)
+            new_task["deadline"] = (datetime.now().timestamp() + deadline_seconds) * 1000
+            new_task["estimated_delay"] = random.randint(3, 25)
+        
+        tasks.append(new_task)
+        task_counter["current"] += 1
+        generated += 1
+    
+    return {"generated": generated, "message": f"Generated {generated} tasks"}
+
+
+@api_v1.post("/tasks/batch")
+def generate_batch_tasks(request: TaskBatchRequest):
+    """批量生成任务"""
+    return generate_tasks(TaskGenerateRequest(count=request.count))
+
+
+@api_v1.post("/incident/trigger")
+def trigger_incident(request: IncidentTriggerRequest):
+    """触发事故：注入大量collision_warning任务"""
+    generated = 0
+    
+    for _ in range(request.count):
+        cpu_need = random.uniform(15, 45)
+        deadline_seconds = random.randint(3, 15)
+        
+        new_task = {
+            "task_id": f"incident_{task_counter['current']}",
+            "cpu_need": cpu_need,
+            "task_type": "collision_warning",
+            "status": "waiting",
+            "created_at": datetime.now().isoformat(),
+            "deadline": (datetime.now().timestamp() + deadline_seconds) * 1000,
+            "estimated_delay": random.randint(2, 12)
+        }
+        
+        tasks.append(new_task)
+        task_counter["current"] += 1
+        generated += 1
+    
+    # 增加节点负载
+    for node in nodes:
+        node["cpu"] = min(100, node["cpu"] + random.uniform(10, 30))
+        node["mem"] = min(100, node["mem"] + random.uniform(5, 20))
+    
+    return {"injected": generated, "message": f"Incident triggered: {generated} collision_warning tasks"}
+
+
+@api_v1.post("/experiments/start")
+def start_experiment_api():
+    """开始实验"""
+    global current_experiment
+    experiment_id = f"exp_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    current_experiment = {
+        "experiment_id": experiment_id,
+        "status": "running",
+        "start_time": datetime.now().isoformat(),
+        "scene_mode": current_scene_mode,
+        "scheduler_strategy": current_scheduler_strategy
+    }
+    
+    # 清空现有任务
+    tasks.clear()
+    
+    return {
+        "experiment_id": experiment_id,
+        "status": "running",
+        "start_time": current_experiment["start_time"],
+        "message": "Experiment started"
+    }
+
+
+@api_v1.post("/experiments/stop")
+def stop_experiment_api(request: ExperimentStopRequest = None):
+    """停止实验"""
+    global current_experiment
+    
+    if current_experiment is None:
+        return {"error": "No running experiment"}
+    
+    current_experiment["status"] = "stopped"
+    current_experiment["end_time"] = datetime.now().isoformat()
+    
+    return {
+        "experiment_id": current_experiment["experiment_id"],
+        "status": "stopped",
+        "end_time": current_experiment["end_time"],
+        "message": "Experiment stopped"
+    }
+
+
+@api_v1.post("/experiments/reset")
+def reset_experiment():
+    """重置实验"""
+    global current_experiment
+    
+    current_experiment = None
+    tasks.clear()
+    
+    for node in nodes:
+        node["cpu"] = random.uniform(10, 30)
+        node["mem"] = random.uniform(20, 40)
+        node["queue_len"] = 0
+    
+    return {"message": "Experiment reset"}
+
+
+@api_v1.get("/experiments/current")
+def get_current_experiment():
+    """获取当前实验信息"""
+    if current_experiment is None:
+        return {"experiment_id": None, "status": None}
+    
+    return current_experiment
+
+
+@api_v1.get("/scheduler/current")
+def get_current_scheduler():
+    """获取当前调度策略"""
+    return {"strategy": current_scheduler_strategy}
+
+
+@api_v1.post("/scheduler/strategy")
+def set_scheduler_strategy(request: SchedulerStrategyRequest):
+    """设置调度策略"""
+    global current_scheduler_strategy
+    
+    valid_strategies = ["least_load", "round_robin", "shortest_queue", "sla_predict"]
+    if request.strategy not in valid_strategies:
+        return {"error": f"Invalid strategy: {request.strategy}"}
+    
+    current_scheduler_strategy = request.strategy
+    
+    return {
+        "strategy": current_scheduler_strategy,
+        "message": f"Scheduler strategy set to {current_scheduler_strategy}"
+    }
+
+
+@api_v1.websocket("/ws")
+async def ws_monitor(websocket: WebSocket):
+    """实时大屏WebSocket接口"""
+    await websocket.accept()
+    _monitor_ws_clients.append(websocket)
+    
+    try:
+        # 立即发送当前状态
+        await websocket.send_json({
+            "type": "nodes_update",
+            "nodes": copy.deepcopy(nodes)
+        })
+        
+        await websocket.send_json({
+            "type": "tasks_update",
+            "tasks": copy.deepcopy(tasks)
+        })
+        
+        # 保持连接，使用try-except捕获断开连接的情况
+        while True:
+            try:
+                msg = await websocket.receive()
+                if msg["type"] == "websocket.disconnect":
+                    break
+            except WebSocketDisconnect:
+                break
+            except Exception:
+                break
+            
+    except Exception:
+        pass
+    finally:
+        if websocket in _monitor_ws_clients:
+            _monitor_ws_clients.remove(websocket)
+
+
+@app.websocket("/ws")
+async def ws_monitor_root(websocket: WebSocket):
+    """根路径WebSocket接口（兼容）"""
+    await websocket.accept()
+    _monitor_ws_clients.append(websocket)
+    
+    try:
+        # 立即发送当前状态
+        await websocket.send_json({
+            "type": "nodes_update",
+            "nodes": copy.deepcopy(nodes)
+        })
+        
+        await websocket.send_json({
+            "type": "tasks_update",
+            "tasks": copy.deepcopy(tasks)
+        })
+        
+        # 保持连接，使用try-except捕获断开连接的情况
+        while True:
+            try:
+                msg = await websocket.receive()
+                if msg["type"] == "websocket.disconnect":
+                    break
+            except WebSocketDisconnect:
+                break
+            except Exception:
+                break
+            
+    except Exception:
+        pass
+    finally:
+        if websocket in _monitor_ws_clients:
+            _monitor_ws_clients.remove(websocket)
 
 
 @api_v1.get("/nodes")

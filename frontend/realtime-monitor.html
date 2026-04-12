@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0b1120">
+    <title>实时大屏 - EdgeTwin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <style>
+        .monitor-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .monitor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .monitor-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .monitor-subtitle {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .monitor-status {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            font-size: 0.88rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.offline {
+            background: #ef4444;
+            animation: none;
+        }
+
+        .status-dot.warning {
+            background: #f59e0b;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .alert-bar {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.1) 100%);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: var(--radius-sm);
+            padding: 12px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: alertPulse 2s infinite;
+        }
+
+        @keyframes alertPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+        }
+
+        .alert-icon {
+            width: 24px;
+            height: 24px;
+            color: #ef4444;
+        }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-title {
+            font-weight: 600;
+            color: #fca5a5;
+            margin-bottom: 4px;
+        }
+
+        .alert-message {
+            font-size: 0.88rem;
+            color: #fca5a5;
+        }
+
+        .alert-close {
+            background: none;
+            border: none;
+            color: #fca5a5;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 4px;
+        }
+
+        .monitor-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .monitor-panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius);
+            padding: 20px;
+            backdrop-filter: blur(12px);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-icon {
+            width: 20px;
+            height: 20px;
+            color: var(--accent);
+        }
+
+        .panel-badge {
+            font-size: 0.8rem;
+            padding: 4px 10px;
+            background: rgba(34, 211, 238, 0.15);
+            border: 1px solid rgba(34, 211, 238, 0.3);
+            border-radius: 12px;
+            color: var(--accent);
+        }
+
+        .nodes-panel {
+            grid-column: span 8;
+        }
+
+        .tasks-panel {
+            grid-column: span 4;
+        }
+
+        .chart-panel {
+            grid-column: span 4;
+        }
+
+        .priority-panel {
+            grid-column: span 8;
+        }
+
+        .nodes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .node-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+            transition: all 0.2s;
+        }
+
+        .node-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .node-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .node-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .node-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.82rem;
+        }
+
+        .node-status.online {
+            color: #22c55e;
+        }
+
+        .node-status.offline {
+            color: #ef4444;
+        }
+
+        .node-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .node-metric {
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .metric-value.high {
+            color: #ef4444;
+        }
+
+        .metric-value.medium {
+            color: #f59e0b;
+        }
+
+        .metric-value.low {
+            color: #22c55e;
+        }
+
+        .metric-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .node-congestion {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .congestion-label {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        .congestion-bar {
+            flex: 1;
+            margin: 0 12px;
+            height: 6px;
+            background: rgba(148, 163, 184, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .congestion-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #22c55e 0%, #f59e0b 50%, #ef4444 100%);
+            transition: width 0.3s;
+        }
+
+        .congestion-value {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .task-summary {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .task-stat {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            text-align: center;
+        }
+
+        .task-stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .task-stat-label {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .task-chart {
+            height: 200px;
+        }
+
+        .priority-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .priority-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .priority-item.critical {
+            border-left: 3px solid #ef4444;
+        }
+
+        .priority-item.warning {
+            border-left: 3px solid #f59e0b;
+        }
+
+        .priority-item.normal {
+            border-left: 3px solid #22c55e;
+        }
+
+        .priority-info {
+            flex: 1;
+        }
+
+        .priority-id {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+
+        .priority-type {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        .priority-metrics {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .priority-metric {
+            text-align: center;
+        }
+
+        .priority-metric-value {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .priority-metric-value.critical {
+            color: #ef4444;
+        }
+
+        .priority-metric-value.warning {
+            color: #f59e0b;
+        }
+
+        .priority-metric-value.normal {
+            color: #22c55e;
+        }
+
+        .priority-metric-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            background: rgba(34, 211, 238, 0.1);
+            border-color: var(--accent);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: rgba(148, 163, 184, 0.1);
+            border-radius: 3px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 3px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.5);
+        }
+    </style>
+</head>
+<body>
+
+<header class="site-header">
+    <div class="header-inner">
+        <a href="index.html" class="brand">
+            <span class="brand-mark" aria-hidden="true">
+                <svg class="brand-svg" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M8 22L16 8l8 14H8z" stroke="rgba(255,255,255,0.9)" stroke-width="1.5" stroke-linejoin="round"/>
+                    <circle cx="16" cy="20" r="2" fill="rgba(255,255,255,0.85)"/>
+                </svg>
+            </span>
+            <span class="brand-text">
+                <span class="brand-title">EdgeTwin</span>
+                <span class="brand-sub">实时大屏</span>
+            </span>
+        </a>
+        <nav class="site-nav" aria-label="主导航">
+            <a href="index.html" class="nav-link">首页</a>
+            <a href="console.html" class="nav-link">控制台</a>
+            <a href="realtime-monitor.html" class="nav-link active">实时大屏</a>
+        </nav>
+    </div>
+</header>
+
+<main class="main-wrap">
+    <div class="monitor-container">
+        <div class="monitor-header">
+            <div>
+                <h1 class="monitor-title">实时大屏</h1>
+                <p class="monitor-subtitle">节点态 · 任务态 · 告警态</p>
+            </div>
+            <div class="monitor-status">
+                <div class="status-badge">
+                    <span class="status-dot" id="backendStatus"></span>
+                    <span id="backendStatusText">后端连接中...</span>
+                </div>
+                <div class="status-badge">
+                    <span class="status-dot" id="wsStatus"></span>
+                    <span id="wsStatusText">WS连接中...</span>
+                </div>
+                <a href="console.html" class="back-btn">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    返回控制台
+                </a>
+            </div>
+        </div>
+
+        <div class="alert-bar" id="alertBar" style="display: none;">
+            <svg class="alert-icon" viewBox="0 0 24 24" fill="none">
+                <path d="M12 9v4M12 17h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="alert-content">
+                <div class="alert-title" id="alertTitle">系统告警</div>
+                <div class="alert-message" id="alertMessage">检测到高优先级任务堆积</div>
+            </div>
+            <button class="alert-close" onclick="hideAlert()">&times;</button>
+        </div>
+
+        <div class="monitor-grid">
+            <div class="monitor-panel nodes-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" fill="none">
+                            <path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M4 10h16M4 14h16M10 6v12" stroke="currentColor" stroke-width="1.5"/>
+                        </svg>
+                        节点状态
+                    </h2>
+                    <span class="panel-badge" id="nodeCount">0 节点</span>
+                </div>
+                <div class="nodes-grid" id="nodesGrid">
+                    <div class="empty-state">
+                        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none">
+                            <path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" stroke="currentColor" stroke-width="1.5"/>
+                        </svg>
+                        <p>等待节点数据...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="monitor-panel tasks-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" fill="none">
+                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="currentColor" stroke-width="1.5"/>
+                        </svg>
+                        任务统计
+                    </h2>
+                </div>
+                <div class="task-summary">
+                    <div class="task-stat">
+                        <div class="task-stat-value" id="totalTasks">0</div>
+                        <div class="task-stat-label">队列总数</div>
+                    </div>
+                    <div class="task-stat">
+                        <div class="task-stat-value" id="highPriorityTasks">0</div>
+                        <div class="task-stat-label">高优任务</div>
+                    </div>
+                </div>
+                <div id="taskTypeChart" class="task-chart"></div>
+            </div>
+
+            <div class="monitor-panel chart-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" fill="none">
+                            <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke="currentColor" stroke-width="1.5"/>
+                        </svg>
+                        任务类型分布
+                    </h2>
+                </div>
+                <div id="typePieChart" style="height: 200px;"></div>
+            </div>
+
+            <div class="monitor-panel chart-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" fill="none">
+                            <path d="M13 10V3L4 14h7v7l9-11h-7z" stroke="currentColor" stroke-width="1.5"/>
+                        </svg>
+                        节点负载分布
+                    </h2>
+                </div>
+                <div id="loadBarChart" style="height: 200px;"></div>
+            </div>
+
+            <div class="monitor-panel chart-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="1.5"/>
+                        </svg>
+                        队列长度趋势
+                    </h2>
+                </div>
+                <div id="queueLineChart" style="height: 200px;"></div>
+            </div>
+
+            <div class="monitor-panel priority-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg class="panel-icon" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke="currentColor" stroke-width="1.5"/>
+                        </svg>
+                        高优先级任务
+                        <span class="panel-badge" id="priorityCount">0</span>
+                    </h2>
+                </div>
+                <div class="priority-list scrollbar-thin" id="priorityList">
+                    <div class="empty-state">
+                        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="1.5"/>
+                        </svg>
+                        <p>暂无高优先级任务</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+let apiBase = 'http://127.0.0.1:8000';
+try {
+    apiBase = localStorage.getItem('MONITOR_API_BASE') || 'http://127.0.0.1:8000';
+} catch (e) {}
+
+let ws = null;
+let nodes = [];
+let tasks = [];
+let queueHistory = [];
+let typePieChart = null;
+let loadBarChart = null;
+let queueLineChart = null;
+
+function showAlert(title, message) {
+    const alertBar = document.getElementById('alertBar');
+    document.getElementById('alertTitle').textContent = title;
+    document.getElementById('alertMessage').textContent = message;
+    alertBar.style.display = 'flex';
+}
+
+function hideAlert() {
+    document.getElementById('alertBar').style.display = 'none';
+}
+
+async function checkBackendStatus() {
+    try {
+        const res = await fetch(`${apiBase}/api/v1/health`, { 
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
+        if (res.ok) {
+            document.getElementById('backendStatus').classList.remove('offline');
+            document.getElementById('backendStatusText').textContent = '后端在线';
+            return true;
+        }
+    } catch (e) {
+        console.warn('Backend health check failed:', e);
+    }
+    document.getElementById('backendStatus').classList.add('offline');
+    document.getElementById('backendStatusText').textContent = '后端离线';
+    return false;
+}
+
+function connectWebSocket() {
+    const wsUrl = apiBase.replace('http', 'ws') + '/api/v1/ws';
+    try {
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = () => {
+            document.getElementById('wsStatus').classList.remove('offline');
+            document.getElementById('wsStatusText').textContent = 'WS已连接';
+        };
+        
+        ws.onclose = () => {
+            document.getElementById('wsStatus').classList.add('offline');
+            document.getElementById('wsStatusText').textContent = 'WS断开';
+            setTimeout(connectWebSocket, 3000);
+        };
+        
+        ws.onerror = () => {
+            document.getElementById('wsStatus').classList.add('offline');
+            document.getElementById('wsStatusText').textContent = 'WS错误';
+        };
+        
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            handleWebSocketMessage(data);
+        };
+    } catch (e) {
+        console.error('WebSocket connection failed:', e);
+    }
+}
+
+function handleWebSocketMessage(data) {
+    if (data.type === 'nodes_update') {
+        nodes = data.nodes || [];
+        renderNodes();
+        updateLoadChart();
+        checkAlerts();
+    } else if (data.type === 'tasks_update') {
+        tasks = data.tasks || [];
+        renderTasks();
+        updateTypeChart();
+        updatePriorityList();
+        updateQueueChart();
+        checkAlerts();
+    }
+}
+
+function renderNodes() {
+    const grid = document.getElementById('nodesGrid');
+    document.getElementById('nodeCount').textContent = `${nodes.length} 节点`;
+    
+    if (nodes.length === 0) {
+        grid.innerHTML = `
+            <div class="empty-state">
+                <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+                <p>等待节点数据...</p>
+            </div>
+        `;
+        return;
+    }
+    
+    grid.innerHTML = nodes.map(node => {
+        const congestionScore = calculateCongestionScore(node);
+        const congestionLevel = congestionScore > 70 ? 'high' : congestionScore > 40 ? 'medium' : 'low';
+        const cpuLevel = node.cpu > 80 ? 'high' : node.cpu > 50 ? 'medium' : 'low';
+        const memLevel = node.mem > 80 ? 'high' : node.mem > 50 ? 'medium' : 'low';
+        
+        return `
+            <div class="node-card">
+                <div class="node-header">
+                    <span class="node-name">${node.name || 'Unknown'}</span>
+                    <span class="node-status ${node.online ? 'online' : 'offline'}">
+                        <span class="status-dot" style="width: 6px; height: 6px; ${node.online ? '' : 'background: #ef4444;'}"></span>
+                        ${node.online ? '在线' : '离线'}
+                    </span>
+                </div>
+                <div class="node-metrics">
+                    <div class="node-metric">
+                        <div class="metric-value ${cpuLevel}">${node.cpu || 0}%</div>
+                        <div class="metric-label">CPU</div>
+                    </div>
+                    <div class="node-metric">
+                        <div class="metric-value ${memLevel}">${node.mem || 0}%</div>
+                        <div class="metric-label">内存</div>
+                    </div>
+                    <div class="node-metric">
+                        <div class="metric-value">${node.queue_len || 0}</div>
+                        <div class="metric-label">队列</div>
+                    </div>
+                </div>
+                <div class="node-congestion">
+                    <span class="congestion-label">拥堵指数</span>
+                    <div class="congestion-bar">
+                        <div class="congestion-fill" style="width: ${congestionScore}%"></div>
+                    </div>
+                    <span class="congestion-value">${congestionScore.toFixed(0)}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function calculateCongestionScore(node) {
+    const cpuWeight = 0.4;
+    const memWeight = 0.3;
+    const queueWeight = 0.3;
+    
+    let score = (node.cpu || 0) * cpuWeight + 
+                (node.mem || 0) * memWeight + 
+                Math.min((node.queue_len || 0) * 5, 100) * queueWeight;
+    
+    return Math.min(Math.max(score, 0), 100);
+}
+
+function renderTasks() {
+    const totalTasks = tasks.length;
+    const highPriorityTasks = tasks.filter(t => t.task_type === 'collision_warning').length;
+    
+    document.getElementById('totalTasks').textContent = totalTasks;
+    document.getElementById('highPriorityTasks').textContent = highPriorityTasks;
+}
+
+function updateTypeChart() {
+    if (!typePieChart) {
+        typePieChart = echarts.init(document.getElementById('typePieChart'));
+    }
+    
+    const typeCount = {};
+    tasks.forEach(task => {
+        const type = task.task_type || 'unknown';
+        typeCount[type] = (typeCount[type] || 0) + 1;
+    });
+    
+    const data = Object.entries(typeCount).map(([name, value]) => ({ name, value }));
+    
+    typePieChart.setOption({
+        tooltip: { trigger: 'item' },
+        legend: { 
+            orient: 'vertical',
+            right: 10,
+            top: 'center',
+            textStyle: { color: '#94a3b8', fontSize: 11 }
+        },
+        series: [{
+            type: 'pie',
+            radius: ['40%', '70%'],
+            center: ['35%', '50%'],
+            avoidLabelOverlap: false,
+            itemStyle: {
+                borderRadius: 6,
+                borderColor: '#0f172a',
+                borderWidth: 2
+            },
+            label: { show: false },
+            emphasis: {
+                label: {
+                    show: true,
+                    fontSize: 12,
+                    fontWeight: 'bold',
+                    color: '#f1f5f9'
+                }
+            },
+            data: data
+        }]
+    });
+}
+
+function updateLoadChart() {
+    if (!loadBarChart) {
+        loadBarChart = echarts.init(document.getElementById('loadBarChart'));
+    }
+    
+    const nodeNames = nodes.map(n => n.name || 'Unknown');
+    const cpuData = nodes.map(n => n.cpu || 0);
+    
+    loadBarChart.setOption({
+        tooltip: { trigger: 'axis' },
+        grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: nodeNames,
+            axisLabel: { color: '#94a3b8', fontSize: 10, rotate: 30 }
+        },
+        yAxis: {
+            type: 'value',
+            max: 100,
+            axisLabel: { color: '#94a3b8', fontSize: 10 },
+            splitLine: { lineStyle: { color: 'rgba(148,163,184,0.2)' } }
+        },
+        series: [{
+            type: 'bar',
+            data: cpuData,
+            itemStyle: {
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: '#22d3ee' },
+                    { offset: 1, color: '#0e7490' }
+                ]),
+                borderRadius: [4, 4, 0, 0]
+            }
+        }]
+    });
+}
+
+function updateQueueChart() {
+    if (!queueLineChart) {
+        queueLineChart = echarts.init(document.getElementById('queueLineChart'));
+    }
+    
+    const totalQueue = nodes.reduce((sum, n) => sum + (n.queue_len || 0), 0);
+    queueHistory.push(totalQueue);
+    if (queueHistory.length > 20) queueHistory.shift();
+    
+    queueLineChart.setOption({
+        tooltip: { trigger: 'axis' },
+        grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: queueHistory.map((_, i) => i + 1),
+            axisLabel: { color: '#94a3b8', fontSize: 10 }
+        },
+        yAxis: {
+            type: 'value',
+            axisLabel: { color: '#94a3b8', fontSize: 10 },
+            splitLine: { lineStyle: { color: 'rgba(148,163,184,0.2)' } }
+        },
+        series: [{
+            type: 'line',
+            data: queueHistory,
+            smooth: true,
+            showSymbol: false,
+            lineStyle: { width: 2, color: '#a78bfa' },
+            areaStyle: {
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: 'rgba(167,139,250,0.3)' },
+                    { offset: 1, color: 'rgba(167,139,250,0.05)' }
+                ])
+            }
+        }]
+    });
+}
+
+function updatePriorityList() {
+    const priorityTasks = tasks.filter(t => t.task_type === 'collision_warning');
+    const list = document.getElementById('priorityList');
+    document.getElementById('priorityCount').textContent = priorityTasks.length;
+    
+    if (priorityTasks.length === 0) {
+        list.innerHTML = `
+            <div class="empty-state">
+                <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+                <p>暂无高优先级任务</p>
+            </div>
+        `;
+        return;
+    }
+    
+    list.innerHTML = priorityTasks.slice(0, 20).map(task => {
+        const willTimeout = checkWillTimeout(task);
+        const statusClass = willTimeout ? 'critical' : 'warning';
+        const statusText = willTimeout ? '将超时' : '正常';
+        
+        return `
+            <div class="priority-item ${statusClass}">
+                <div class="priority-info">
+                    <div class="priority-id">${task.task_id || 'Unknown'}</div>
+                    <div class="priority-type">${task.task_type || 'collision_warning'}</div>
+                </div>
+                <div class="priority-metrics">
+                    <div class="priority-metric">
+                        <div class="priority-metric-value ${statusClass}">${task.deadline || '-'}</div>
+                        <div class="priority-metric-label">截止时间</div>
+                    </div>
+                    <div class="priority-metric">
+                        <div class="priority-metric-value ${statusClass}">${task.estimated_delay || '-'}</div>
+                        <div class="priority-metric-label">预计时延</div>
+                    </div>
+                    <div class="priority-metric">
+                        <div class="priority-metric-value ${statusClass}">${statusText}</div>
+                        <div class="priority-metric-label">状态</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function checkWillTimeout(task) {
+    if (!task.deadline || !task.estimated_delay) return false;
+    
+    const deadline = new Date(task.deadline);
+    const estimatedDelay = parseInt(task.estimated_delay) || 0;
+    const now = new Date();
+    const estimatedCompletion = new Date(now.getTime() + estimatedDelay * 1000);
+    
+    return estimatedCompletion > deadline;
+}
+
+function checkAlerts() {
+    const highPriorityTasks = tasks.filter(t => t.task_type === 'collision_warning');
+    const timeoutTasks = highPriorityTasks.filter(t => checkWillTimeout(t));
+    
+    const overloadedNodes = nodes.filter(n => calculateCongestionScore(n) > 70);
+    
+    if (timeoutTasks.length > 0) {
+        showAlert('超时告警', `${timeoutTasks.length} 个高优先级任务即将超时`);
+    } else if (overloadedNodes.length > 0) {
+        showAlert('负载告警', `${overloadedNodes.length} 个节点负载过高`);
+    } else {
+        hideAlert();
+    }
+}
+
+function resizeCharts() {
+    if (typePieChart) typePieChart.resize();
+    if (loadBarChart) loadBarChart.resize();
+    if (queueLineChart) queueLineChart.resize();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    checkBackendStatus();
+    connectWebSocket();
+    
+    setInterval(checkBackendStatus, 10000);
+    window.addEventListener('resize', resizeCharts);
+    
+    setInterval(() => {
+        if (nodes.length === 0) {
+            fetchNodes();
+        }
+        if (tasks.length === 0) {
+            fetchTasks();
+        }
+    }, 5000);
+});
+
+async function fetchNodes() {
+    try {
+        const res = await fetch(`${apiBase}/nodes`, { 
+            headers: { 'Accept': 'application/json' }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            nodes = data.nodes || [];
+            renderNodes();
+            updateLoadChart();
+        }
+    } catch (e) {
+        console.warn('Fetch nodes failed:', e);
+    }
+}
+
+async function fetchTasks() {
+    try {
+        const res = await fetch(`${apiBase}/tasks`, { 
+            headers: { 'Accept': 'application/json' }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            tasks = data.tasks || [];
+            renderTasks();
+            updateTypeChart();
+            updatePriorityList();
+            updateQueueChart();
+        }
+    } catch (e) {
+        console.warn('Fetch tasks failed:', e);
+    }
+}
+</script>
+
+</body>
+</html>
