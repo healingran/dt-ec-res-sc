@@ -43,6 +43,79 @@
             display: flex;
             gap: 16px;
             align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .monitor-quick-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding: 14px 18px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius);
+        }
+
+        .monitor-quick-label {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-right: 4px;
+        }
+
+        .monitor-quick-input {
+            width: 72px;
+            padding: 8px 10px;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 0.88rem;
+        }
+
+        .monitor-quick-hint {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        .monitor-quick-btn {
+            padding: 9px 18px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .monitor-quick-btn:hover {
+            border-color: var(--accent);
+            background: rgba(34, 211, 238, 0.08);
+        }
+
+        .monitor-quick-btn.primary {
+            background: linear-gradient(135deg, #22d3ee 0%, #0891b2 100%);
+            border-color: transparent;
+            color: #0f172a;
+        }
+
+        .monitor-quick-btn.primary:hover {
+            filter: brightness(1.05);
+        }
+
+        .monitor-quick-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        #monitorQuickMsg {
+            font-size: 0.82rem;
+            color: var(--accent);
+            min-width: 120px;
         }
 
         .status-badge {
@@ -578,6 +651,16 @@
                     返回控制台
                 </a>
             </div>
+        </div>
+
+        <div class="monitor-quick-bar" aria-label="演示快捷操作">
+            <span class="monitor-quick-label">演示快捷</span>
+            <span class="monitor-quick-hint">生成</span>
+            <input type="number" class="monitor-quick-input" id="quickGenCount" value="10" min="1" max="200" title="生成任务数量" />
+            <span class="monitor-quick-hint">个任务</span>
+            <button type="button" class="monitor-quick-btn primary" id="btnQuickGen" onclick="quickGenerateTasks()">一键生成任务</button>
+            <button type="button" class="monitor-quick-btn" id="btnQuickScheduleAll" onclick="quickScheduleUntilEmpty()">一键调度至队列为空</button>
+            <span id="monitorQuickMsg" role="status"></span>
         </div>
 
         <div class="alert-bar" id="alertBar" style="display: none;">
@@ -1183,6 +1266,94 @@ async function fetchTaskHistory() {
                 '<tr><td colspan="4" style="color:var(--text-muted);">无法加载任务历史（请确认后端已更新并含 tasks_history 表）</td></tr>';
         }
         console.warn('fetchTaskHistory:', e);
+    }
+}
+
+function setMonitorQuickMsg(text, isError) {
+    const el = document.getElementById('monitorQuickMsg');
+    if (!el) return;
+    el.textContent = text || '';
+    el.style.color = isError ? '#f87171' : 'var(--accent)';
+}
+
+async function quickGenerateTasks() {
+    const count = Math.min(200, Math.max(1, parseInt(document.getElementById('quickGenCount').value, 10) || 10));
+    document.getElementById('quickGenCount').value = String(count);
+    const btn = document.getElementById('btnQuickGen');
+    if (btn) btn.disabled = true;
+    setMonitorQuickMsg('生成中…');
+    try {
+        const res = await fetch(`${apiBase}/api/v1/tasks/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ count }),
+        });
+        const data = await res.json();
+        if (res.ok && data.generated != null) {
+            setMonitorQuickMsg(`已生成 ${data.generated} 个任务`);
+            fetchTasks();
+            fetchSimState();
+        } else {
+            setMonitorQuickMsg(data.error || '生成失败', true);
+        }
+    } catch (e) {
+        setMonitorQuickMsg(e.message || '请求失败', true);
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+let _quickBusy = false;
+
+async function quickScheduleUntilEmpty() {
+    if (_quickBusy) return;
+    _quickBusy = true;
+    const btn = document.getElementById('btnQuickScheduleAll');
+    if (btn) btn.disabled = true;
+    setMonitorQuickMsg('调度中…');
+    let strategy = 'least_load';
+    try {
+        const sr = await fetch(`${apiBase}/api/v1/scheduler/current`, {
+            headers: { Accept: 'application/json' },
+        });
+        if (sr.ok) {
+            const d = await sr.json();
+            if (d.strategy) strategy = d.strategy;
+        }
+    } catch (e) {
+        /* use default */
+    }
+    let n = 0;
+    try {
+        while (true) {
+            const res = await fetch(
+                `${apiBase}/api/v1/schedule?strategy=${encodeURIComponent(strategy)}`,
+                { method: 'POST' }
+            );
+            const data = await res.json();
+            const errMsg = data.error ? String(data.error) : '';
+            if (errMsg.includes('没有待处理') || errMsg.includes('待处理的任务')) {
+                break;
+            }
+            if (!res.ok || data.error) {
+                setMonitorQuickMsg(data.error || '调度中断', true);
+                break;
+            }
+            n++;
+        }
+        if (n === 0) {
+            setMonitorQuickMsg('队列无任务', true);
+        } else {
+            setMonitorQuickMsg(`已调度 ${n} 个（策略 ${strategy}）`);
+        }
+        fetchTasks();
+        fetchSimState();
+        fetchTaskHistory();
+    } catch (e) {
+        setMonitorQuickMsg(e.message || '调度失败', true);
+    } finally {
+        _quickBusy = false;
+        if (btn) btn.disabled = false;
     }
 }
 
