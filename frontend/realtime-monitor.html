@@ -719,6 +719,13 @@ function handleWebSocketMessage(data) {
     }
 }
 
+// 后端节点用 status:"online"；金梦婷原稿用 online:true。两种都支持。
+function isNodeOnline(node) {
+    if (node && node.online === true) return true;
+    const s = String(node && node.status != null ? node.status : '').toLowerCase();
+    return s === 'online';
+}
+
 function renderNodes() {
     const grid = document.getElementById('nodesGrid');
     document.getElementById('nodeCount').textContent = `${nodes.length} 节点`;
@@ -740,14 +747,15 @@ function renderNodes() {
         const congestionLevel = congestionScore > 70 ? 'high' : congestionScore > 40 ? 'medium' : 'low';
         const cpuLevel = node.cpu > 80 ? 'high' : node.cpu > 50 ? 'medium' : 'low';
         const memLevel = node.mem > 80 ? 'high' : node.mem > 50 ? 'medium' : 'low';
+        const online = isNodeOnline(node);
         
         return `
             <div class="node-card">
                 <div class="node-header">
                     <span class="node-name">${node.name || 'Unknown'}</span>
-                    <span class="node-status ${node.online ? 'online' : 'offline'}">
-                        <span class="status-dot" style="width: 6px; height: 6px; ${node.online ? '' : 'background: #ef4444;'}"></span>
-                        ${node.online ? '在线' : '离线'}
+                    <span class="node-status ${online ? 'online' : 'offline'}">
+                        <span class="status-dot" style="width: 6px; height: 6px; ${online ? '' : 'background: #ef4444;'}"></span>
+                        ${online ? '在线' : '离线'}
                     </span>
                 </div>
                 <div class="node-metrics">

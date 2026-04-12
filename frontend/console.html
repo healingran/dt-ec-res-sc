@@ -633,10 +633,24 @@
                         </select>
                     </div>
                     <div class="control-group">
-                        <div class="control-label">执行策略</div>
+                        <div class="control-label">执行策略（仅写入默认策略，不会自动派单）</div>
                         <div class="control-row">
                             <button class="btn btn-primary" onclick="applySchedulerStrategy()">应用策略</button>
                         </div>
+                    </div>
+                    <div class="control-group">
+                        <div class="control-label">真正调度（从队列取 1 个任务派到节点）</div>
+                        <div class="control-row" style="flex-wrap: wrap; gap: 10px;">
+                            <button class="btn btn-secondary" onclick="runScheduleOnce()" style="background: linear-gradient(135deg, #0ea5e9, #6366f1); color: #fff; border: none;">
+                                执行一次调度
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="btnScheduleAll" onclick="runScheduleUntilEmpty()" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none;">
+                                一键调度至队列为空
+                            </button>
+                        </div>
+                        <p class="control-hint" style="font-size: 12px; opacity: 0.75; margin-top: 8px;">
+                            「执行一次」每次派 1 个任务；「一键」会连续调用调度直到没有待处理任务。成功时日志会摘要输出。
+                        </p>
                     </div>
                     <div class="info-box">
                         <strong>当前策略：</strong><span id="currentStrategy">least_load</span>
@@ -683,6 +697,7 @@ let ws = null;
 let continuousGenInterval = null;
 let currentScene = 'offpeak';
 let experimentInfo = null;
+let autoScheduling = false;
 
 function showToast(message, type = 'success') {
     const toast = document.createElement('div');
@@ -763,11 +778,23 @@ function connectWebSocket() {
     }
 }
 
+let _lastNodeCount = -1;
+let _lastTaskCount = -1;
+
 function handleWebSocketMessage(data) {
+    // 后端每 ~2s 推送一次全量快照；仅在数量变化时写日志，避免刷屏
     if (data.type === 'nodes_update') {
-        log(`节点更新: ${data.nodes.length} 个节点`, 'info');
+        const n = (data.nodes && data.nodes.length) || 0;
+        if (n !== _lastNodeCount) {
+            _lastNodeCount = n;
+            log(`节点更新: ${n} 个节点`, 'info');
+        }
     } else if (data.type === 'tasks_update') {
-        log(`任务更新: ${data.tasks.length} 个任务`, 'info');
+        const t = (data.tasks && data.tasks.length) || 0;
+        if (t !== _lastTaskCount) {
+            _lastTaskCount = t;
+            log(`任务更新: ${t} 个任务`, 'info');
+        }
     }
 }
 
@@ -984,6 +1011,87 @@ async function resetExperiment() {
     } catch (e) {
         log('实验重置错误: ' + e.message, 'error');
         showToast('实验重置错误: ' + e.message, 'error');
+    }
+}
+
+async function runScheduleOnce() {
+    const strategy = document.getElementById('schedulerStrategy').value;
+    try {
+        const res = await fetch(
+            `${apiBase}/api/v1/schedule?strategy=${encodeURIComponent(strategy)}`,
+            { method: 'POST' }
+        );
+        const data = await res.json();
+        if (res.ok && data.message && !data.error) {
+            const node = data.node_name || '-';
+            const before = data.node_cpu_before != null ? data.node_cpu_before : '?';
+            const after = data.node_cpu_after != null ? data.node_cpu_after : '?';
+            const cpuNeed = data.task_details && data.task_details.cpu_need != null ? data.task_details.cpu_need : '';
+            let line = `调度成功 → 节点 ${node}，CPU ${before}% → ${after}%`;
+            if (cpuNeed !== '') line += `，任务 cpu_need=${cpuNeed}`;
+            if (data.estimated_total_latency_ms != null) {
+                line += `，预估时延≈${data.estimated_total_latency_ms}ms`;
+            }
+            log(line, 'success');
+            showToast('已派发队列中的 1 个任务', 'success');
+        } else {
+            const err = data.error || data.detail || JSON.stringify(data);
+            log(`调度未执行: ${err}`, 'warning');
+            showToast(String(err), 'warning');
+        }
+    } catch (e) {
+        log('调度请求错误: ' + e.message, 'error');
+        showToast('调度请求错误: ' + e.message, 'error');
+    }
+}
+
+async function runScheduleUntilEmpty() {
+    if (autoScheduling) {
+        log('已有自动调度在执行，请稍候', 'warning');
+        return;
+    }
+    const btn = document.getElementById('btnScheduleAll');
+    const strategy = document.getElementById('schedulerStrategy').value;
+    autoScheduling = true;
+    if (btn) btn.disabled = true;
+    let n = 0;
+    try {
+        log('开始一键调度（策略: ' + strategy + '）…', 'info');
+        while (true) {
+            const res = await fetch(
+                `${apiBase}/api/v1/schedule?strategy=${encodeURIComponent(strategy)}`,
+                { method: 'POST' }
+            );
+            const data = await res.json();
+            const errMsg = data.error ? String(data.error) : '';
+            if (errMsg.includes('没有待处理') || errMsg.includes('待处理的任务')) {
+                break;
+            }
+            if (!res.ok || data.error) {
+                log('调度中断: ' + (data.error || res.status), 'error');
+                showToast('调度中断', 'error');
+                break;
+            }
+            n++;
+            if (n <= 5 || n % 20 === 0) {
+                const node = data.node_name || '-';
+                const after = data.node_cpu_after != null ? data.node_cpu_after : '?';
+                log(`[第${n}个] → ${node}，CPU→${after}%`, 'success');
+            }
+        }
+        if (n === 0) {
+            log('一键调度结束：队列中无待处理任务', 'info');
+            showToast('当前没有待调度任务', 'warning');
+        } else {
+            log(`一键调度完成：共成功派发 ${n} 个任务`, 'success');
+            showToast(`已派发 ${n} 个任务`, 'success');
+        }
+    } catch (e) {
+        log('一键调度异常: ' + e.message, 'error');
+        showToast(e.message, 'error');
+    } finally {
+        autoScheduling = false;
+        if (btn) btn.disabled = false;
     }
 }
 
