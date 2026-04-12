@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0b1120">
-    <title>数字孪生 Dashboard · EdgeTwin</title>
+    <title>车路协同驾驶舱 · EdgeTwin</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
     <script type="importmap">
     {
@@ -21,7 +21,7 @@
 <header class="dash-header">
     <div class="dash-header-left">
         <a class="dash-back" href="index.html">← 返回首页</a>
-        <h1 class="dash-title">数字孪生 · 一体化驾驶舱</h1>
+        <h1 class="dash-title">智能网联 · 一体化驾驶舱</h1>
     </div>
     <div class="dash-controls">
         <label class="dash-label" for="strategySelect">调度策略</label>
@@ -42,14 +42,14 @@
     </div>
 </header>
 
-<section class="dash-mid" aria-label="三维城市场景">
+<section class="dash-mid" aria-label="复杂交通三维孪生">
     <div id="scene3d" class="dash-scene"></div>
 </section>
 
 <section class="dash-bottom" aria-label="负载对比图表">
     <div class="dash-chart-head">
-        <h2>节点 1 · 真实 CPU 与 LSTM 预测对比</h2>
-        <p class="dash-chart-hint">左轴：真实采样 % · 右轴：预测序列（训练数据尺度，便于同屏对照）</p>
+        <h2>路侧节点负载 · 真实值与 LSTM 预测</h2>
+        <p class="dash-chart-hint">面向车路协同边缘算力监测：左轴真实 CPU%，右轴预测序列（同屏对照）</p>
     </div>
     <div id="chartCompare" class="dash-chart"></div>
 </section>
