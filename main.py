@@ -1,30 +1,42 @@
-# main.py
 import asyncio
 import copy
+import io
+import json
+import random
 from contextlib import asynccontextmanager
-from typing import List
+from datetime import datetime
+from typing import List, Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel, Field
 
-from backend.models import nodes, tasks, task_counter
-from backend.simulator import start_simulator
-from backend import dashboard_state
-from algorithms.scheduler import execute_schedule
 from algorithms.predictor import get_predictions
+from algorithms.scheduler import execute_schedule
+from backend import dashboard_state
+from backend import database as db
+from backend.database import DB_PATH
+from backend.experiment_export_last import (
+    build_last_experiment_export_dict,
+    suggested_export_filename,
+)
+from backend.models import nodes, task_counter, tasks
+from backend.sim_state import build_sim_state_snapshot
+from backend.tasks_history import get_task_history, record_task_arrival, task_public_id
+from backend.simulator import start_simulator
+from backend.ws_manager import manager as ws_manager
+
 import uvicorn
 
-# 启动模拟器（线程）
-start_simulator()
 
-# WebSocket 订阅者（单广播循环推送，避免多连接重复采样 CPU 历史）
 _dashboard_ws_clients: List[WebSocket] = []
 
 
-def _build_ws_payload() -> dict:
-    """组装 WebSocket 推送：节点快照 + 节点1真实历史 + LSTM 预测序列。"""
+def _build_dashboard_payload() -> dict:
+    """dashboard 推送：节点快照 + 节点1真实历史 + LSTM 预测序列。"""
     n1 = next((n for n in nodes if n.get("id") == 1), None)
-    if n1 is not None:
+    if n1 is not None and "cpu" in n1:
         dashboard_state.append_node1_cpu(n1["cpu"])
 
     real = list(dashboard_state.CPU_HISTORY)
@@ -53,7 +65,7 @@ async def _dashboard_broadcast_loop() -> None:
         await asyncio.sleep(2)
         if not _dashboard_ws_clients:
             continue
-        payload = _build_ws_payload()
+        payload = _build_dashboard_payload()
         dead: List[WebSocket] = []
         for ws in list(_dashboard_ws_clients):
             try:
@@ -68,10 +80,13 @@ async def _dashboard_broadcast_loop() -> None:
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     task = asyncio.create_task(_dashboard_broadcast_loop())
+    monitor_task = asyncio.create_task(_monitor_broadcast_loop())
     yield
     task.cancel()
+    monitor_task.cancel()
     try:
         await task
+        await monitor_task
     except asyncio.CancelledError:
         pass
 
@@ -88,10 +103,8 @@ app.add_middleware(
         "http://localhost:5500",
         "http://127.0.0.1:3000",
         "http://localhost:3000",
-        # JetBrains IDE 内置 Web 预览（WebStorm / PhpStorm 等，端口多为 63342）
         "http://127.0.0.1:63342",
         "http://localhost:63342",
-        # Vite 等常见前端端口
         "http://127.0.0.1:5173",
         "http://localhost:5173",
     ],
@@ -100,48 +113,644 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 启动模拟器（含：SQLite 持久化 + WebSocket 广播）
+start_simulator()
 
-@app.get("/nodes")
-def get_all_nodes():
+api_v1 = APIRouter(prefix="/api/v1")
+
+
+@app.on_event("startup")
+async def _ws_manager_bind_loop() -> None:
+    """让 simulator 线程里的 broadcast 能尽早挂到当前事件循环（不依赖首个客户端）。"""
+    ws_manager.set_loop(asyncio.get_running_loop())
+
+
+class ExperimentCreate(BaseModel):
+    experiment_name: str
+
+
+class TaskCreate(BaseModel):
+    cpu_need: float = Field(..., ge=0)
+    task_type: str = Field("sensor_fusion")
+    deadline_ms: int = Field(100, ge=1)
+    data_size_kb: float = Field(256.0, ge=0)
+
+
+class SceneSwitchRequest(BaseModel):
+    mode: str
+
+
+class TaskGenerateRequest(BaseModel):
+    count: int = 10
+
+
+class TaskBatchRequest(BaseModel):
+    count: int = 50
+
+
+class IncidentTriggerRequest(BaseModel):
+    count: int = 100
+
+
+class SchedulerStrategyRequest(BaseModel):
+    strategy: str
+
+
+class ExperimentStopRequest(BaseModel):
+    experiment_id: str
+
+
+# 全局状态
+current_scene_mode = "offpeak"
+current_scheduler_strategy = "least_load"
+current_experiment = None
+scene_config = {
+    "offpeak": {"base_load": 10, "burst_intensity": 0.5},
+    "peak": {"base_load": 50, "burst_intensity": 0.8},
+    "incident": {"base_load": 80, "burst_intensity": 1.0}
+}
+_monitor_ws_clients: List[WebSocket] = []
+
+
+async def _monitor_broadcast_loop() -> None:
+    """实时大屏广播循环：每2秒推送节点和任务更新"""
+    while True:
+        await asyncio.sleep(2)
+        if not _monitor_ws_clients:
+            continue
+        
+        payload_nodes = {
+            "type": "nodes_update",
+            "nodes": copy.deepcopy(nodes)
+        }
+        
+        payload_tasks = {
+            "type": "tasks_update",
+            "tasks": copy.deepcopy(tasks)
+        }
+        
+        dead: List[WebSocket] = []
+        for ws in list(_monitor_ws_clients):
+            try:
+                await ws.send_json(payload_nodes)
+                await ws.send_json(payload_tasks)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            if ws in _monitor_ws_clients:
+                _monitor_ws_clients.remove(ws)
+
+
+@api_v1.get("/health")
+def health_check():
+    """健康检查接口"""
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+
+@api_v1.get("/scene/current")
+def get_current_scene():
+    """获取当前场景模式"""
+    config = scene_config.get(current_scene_mode, scene_config["offpeak"])
+    return {
+        "mode": current_scene_mode,
+        "base_load": config["base_load"],
+        "burst_intensity": config["burst_intensity"]
+    }
+
+
+@api_v1.post("/scene/switch")
+def switch_scene(request: SceneSwitchRequest):
+    """切换场景模式"""
+    global current_scene_mode
+    if request.mode not in scene_config:
+        return {"error": f"Invalid scene mode: {request.mode}"}
+    
+    current_scene_mode = request.mode
+    config = scene_config[current_scene_mode]
+    
+    # 更新节点负载以反映场景变化
+    for node in nodes:
+        base_load = config["base_load"]
+        variation = random.uniform(-10, 10)
+        node["cpu"] = max(0, min(100, base_load + variation))
+        node["mem"] = max(0, min(100, base_load * 0.8 + variation))
+    
+    return {
+        "mode": current_scene_mode,
+        "base_load": config["base_load"],
+        "burst_intensity": config["burst_intensity"],
+        "message": f"Scene switched to {current_scene_mode}"
+    }
+
+
+@api_v1.post("/tasks/generate")
+def generate_tasks(request: TaskGenerateRequest):
+    """生成指定数量的任务"""
+    task_types = ["normal", "compute", "io", "collision_warning"]
+    generated = 0
+    
+    for _ in range(request.count):
+        task_type = random.choices(
+            task_types, 
+            weights=[0.6, 0.2, 0.15, 0.05] if current_scene_mode != "incident" else [0.3, 0.2, 0.2, 0.3],
+            k=1
+        )[0]
+        
+        cpu_need = random.uniform(5, 30)
+        if task_type == "collision_warning":
+            cpu_need = random.uniform(10, 50)
+        
+        new_task = {
+            "task_id": f"task_{task_counter['current']}",
+            "cpu_need": cpu_need,
+            "task_type": task_type,
+            "status": "waiting",
+            "created_at": datetime.now().isoformat(),
+            "deadline": None,
+            "estimated_delay": None
+        }
+        
+        if task_type == "collision_warning":
+            deadline_seconds = random.randint(5, 30)
+            new_task["deadline"] = (datetime.now().timestamp() + deadline_seconds) * 1000
+            new_task["estimated_delay"] = random.randint(3, 25)
+        
+        tasks.append(new_task)
+        try:
+            record_task_arrival(task_public_id(new_task))
+        except Exception:
+            pass
+        task_counter["current"] += 1
+        generated += 1
+    
+    return {"generated": generated, "message": f"Generated {generated} tasks"}
+
+
+@api_v1.post("/tasks/batch")
+def generate_batch_tasks(request: TaskBatchRequest):
+    """批量生成任务"""
+    return generate_tasks(TaskGenerateRequest(count=request.count))
+
+
+@api_v1.post("/incident/trigger")
+def trigger_incident(request: IncidentTriggerRequest):
+    """触发事故：注入大量collision_warning任务"""
+    generated = 0
+    
+    for _ in range(request.count):
+        cpu_need = random.uniform(15, 45)
+        deadline_seconds = random.randint(3, 15)
+        
+        new_task = {
+            "task_id": f"incident_{task_counter['current']}",
+            "cpu_need": cpu_need,
+            "task_type": "collision_warning",
+            "status": "waiting",
+            "created_at": datetime.now().isoformat(),
+            "deadline": (datetime.now().timestamp() + deadline_seconds) * 1000,
+            "estimated_delay": random.randint(2, 12)
+        }
+        
+        tasks.append(new_task)
+        try:
+            record_task_arrival(task_public_id(new_task))
+        except Exception:
+            pass
+        task_counter["current"] += 1
+        generated += 1
+    
+    # 增加节点负载
+    for node in nodes:
+        node["cpu"] = min(100, node["cpu"] + random.uniform(10, 30))
+        node["mem"] = min(100, node["mem"] + random.uniform(5, 20))
+    
+    return {"injected": generated, "message": f"Incident triggered: {generated} collision_warning tasks"}
+
+
+@api_v1.post("/experiments/start")
+def start_experiment_api():
+    """开始实验"""
+    global current_experiment
+    experiment_id = f"exp_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    current_experiment = {
+        "experiment_id": experiment_id,
+        "status": "running",
+        "start_time": datetime.now().isoformat(),
+        "scene_mode": current_scene_mode,
+        "scheduler_strategy": current_scheduler_strategy
+    }
+    
+    # 清空现有任务
+    tasks.clear()
+    
+    return {
+        "experiment_id": experiment_id,
+        "status": "running",
+        "start_time": current_experiment["start_time"],
+        "message": "Experiment started"
+    }
+
+
+@api_v1.post("/experiments/stop")
+def stop_experiment_api(request: ExperimentStopRequest = None):
+    """停止实验"""
+    global current_experiment
+    
+    if current_experiment is None:
+        return {"error": "No running experiment"}
+    
+    current_experiment["status"] = "stopped"
+    current_experiment["end_time"] = datetime.now().isoformat()
+    
+    return {
+        "experiment_id": current_experiment["experiment_id"],
+        "status": "stopped",
+        "end_time": current_experiment["end_time"],
+        "message": "Experiment stopped"
+    }
+
+
+@api_v1.post("/experiments/reset")
+def reset_experiment():
+    """重置实验"""
+    global current_experiment
+    
+    current_experiment = None
+    tasks.clear()
+    
+    for node in nodes:
+        node["cpu"] = random.uniform(10, 30)
+        node["mem"] = random.uniform(20, 40)
+        node["queue_len"] = 0
+    
+    return {"message": "Experiment reset"}
+
+
+@api_v1.get("/experiments/current")
+def get_current_experiment():
+    """获取当前实验信息"""
+    if current_experiment is None:
+        return {"experiment_id": None, "status": None}
+    
+    return current_experiment
+
+
+@api_v1.get("/scheduler/current")
+def get_current_scheduler():
+    """获取当前调度策略"""
+    return {"strategy": current_scheduler_strategy}
+
+
+@api_v1.post("/scheduler/strategy")
+def set_scheduler_strategy(request: SchedulerStrategyRequest):
+    """设置调度策略"""
+    global current_scheduler_strategy
+    
+    valid_strategies = [
+        "least_load",
+        "round_robin",
+        "shortest_queue",
+        "predict_least_load",
+        "sla_predict",
+    ]
+    if request.strategy not in valid_strategies:
+        return {"error": f"Invalid strategy: {request.strategy}"}
+    
+    current_scheduler_strategy = request.strategy
+    
+    return {
+        "strategy": current_scheduler_strategy,
+        "message": f"Scheduler strategy set to {current_scheduler_strategy}"
+    }
+
+
+@api_v1.websocket("/ws")
+async def ws_monitor(websocket: WebSocket):
+    """实时大屏WebSocket接口"""
+    await websocket.accept()
+    _monitor_ws_clients.append(websocket)
+    
+    try:
+        # 立即发送当前状态
+        await websocket.send_json({
+            "type": "nodes_update",
+            "nodes": copy.deepcopy(nodes)
+        })
+        
+        await websocket.send_json({
+            "type": "tasks_update",
+            "tasks": copy.deepcopy(tasks)
+        })
+        
+        # 保持连接，使用try-except捕获断开连接的情况
+        while True:
+            try:
+                msg = await websocket.receive()
+                if msg["type"] == "websocket.disconnect":
+                    break
+            except WebSocketDisconnect:
+                break
+            except Exception:
+                break
+            
+    except Exception:
+        pass
+    finally:
+        if websocket in _monitor_ws_clients:
+            _monitor_ws_clients.remove(websocket)
+
+
+@app.websocket("/ws")
+async def ws_monitor_root(websocket: WebSocket):
+    """根路径WebSocket接口（兼容）"""
+    await websocket.accept()
+    _monitor_ws_clients.append(websocket)
+    
+    try:
+        # 立即发送当前状态
+        await websocket.send_json({
+            "type": "nodes_update",
+            "nodes": copy.deepcopy(nodes)
+        })
+        
+        await websocket.send_json({
+            "type": "tasks_update",
+            "tasks": copy.deepcopy(tasks)
+        })
+        
+        # 保持连接，使用try-except捕获断开连接的情况
+        while True:
+            try:
+                msg = await websocket.receive()
+                if msg["type"] == "websocket.disconnect":
+                    break
+            except WebSocketDisconnect:
+                break
+            except Exception:
+                break
+            
+    except Exception:
+        pass
+    finally:
+        if websocket in _monitor_ws_clients:
+            _monitor_ws_clients.remove(websocket)
+
+
+@api_v1.get("/nodes")
+def get_all_nodes_v1():
     return {"nodes": nodes}
 
 
-@app.get("/tasks")
-def get_all_tasks():
+@api_v1.get("/tasks")
+def get_all_tasks_v1():
     return {"pending_tasks": len(tasks), "tasks": tasks}
 
 
-@app.post("/task")
-def create_new_task(cpu_need: float):
+@api_v1.post("/task")
+def create_new_task_v1(
+    cpu_need: float,
+    task_type: str = "sensor_fusion",
+    deadline_ms: int = 100,
+    data_size_kb: float = 256.0,
+):
     new_task = {
         "id": task_counter["current"],
         "cpu_need": cpu_need,
-        "status": "waiting"
+        "task_type": task_type,
+        "deadline_ms": int(deadline_ms),
+        "data_size_kb": float(data_size_kb),
+        "status": "waiting",
     }
     tasks.append(new_task)
+    try:
+        record_task_arrival(task_public_id(new_task))
+    except Exception:
+        pass
     task_counter["current"] += 1
     return {"message": "任务创建成功", "task": new_task}
 
 
+@api_v1.post("/tasks")
+def create_new_task_json_v1(payload: TaskCreate):
+    # 与旧接口共用入队逻辑，确保行为一致
+    return create_new_task_v1(
+        cpu_need=float(payload.cpu_need),
+        task_type=str(payload.task_type),
+        deadline_ms=int(payload.deadline_ms),
+        data_size_kb=float(payload.data_size_kb),
+    )
+
+
+@api_v1.post("/schedule")
+def trigger_schedule_v1(strategy: str = "least_load"):
+    return execute_schedule(strategy)
+
+
+@api_v1.get("/tasks/history")
+def get_tasks_history_v1(task_id: Optional[str] = None, limit: int = 100):
+    """任务事件历史（到达、分配、完成、超时），供复盘与导出。"""
+    try:
+        items = get_task_history(task_id=task_id, limit=limit)
+    except Exception as e:
+        return {"error": str(e), "items": []}
+    return {"count": len(items), "items": items}
+
+
+@api_v1.get("/sim/state")
+def get_sim_state_v1():
+    """与文档一致的模拟器聚合状态（数据源为当前 main 全局状态）。"""
+    return build_sim_state_snapshot(
+        scene_mode=current_scene_mode,
+        scene_config=scene_config,
+        pending_task_count=len(tasks),
+        task_counter_next=int(task_counter["current"]),
+        scheduler_strategy=current_scheduler_strategy,
+        experiment=current_experiment,
+    )
+
+
+@api_v1.get("/predict")
+def predict_load_v1(steps: int = 10):
+    """LSTM 负载预测，steps 为预测步数，默认 10"""
+    return get_predictions(steps=steps)
+
+@api_v1.get("/task_stats")
+def get_task_statistics():
+    """获取任务生成统计信息"""
+    from backend.simulator import get_task_stats as get_stats
+    
+    stats = get_stats()
+    
+    # 计算各类型占比
+    total = stats["total_generated"]
+    if total > 0:
+        stats["offpeak_ratio"] = round(stats["offpeak_count"] / total * 100, 2)
+        stats["tidal_ratio"] = round(stats["tidal_count"] / total * 100, 2)
+        stats["incident_ratio"] = round(stats["incident_count"] / total * 100, 2)
+        stats["timeout_ratio"] = round(stats["predicted_timeout"] / total * 100, 2)
+    else:
+        stats["offpeak_ratio"] = 0
+        stats["tidal_ratio"] = 0
+        stats["incident_ratio"] = 0
+        stats["timeout_ratio"] = 0
+    
+    return stats
+
+
+@api_v1.get("/predict_arrival")
+def predict_arrival_rate(steps: int = 5):
+    """预测未来任务到达率"""
+    from backend.simulator import predict_arrival_rate as get_arrival_prediction
+    
+    prediction = get_arrival_prediction()
+    
+    if prediction is None:
+        return {
+            "error": "数据不足，需要至少3分钟的历史数据",
+            "steps": list(range(1, steps + 1)),
+            "predicted_rates": [0] * steps
+        }
+    
+    # 返回预测结果（限制步数）
+    pred_rates = prediction["predictions"][:steps]
+    while len(pred_rates) < steps:
+        pred_rates.append(pred_rates[-1] if pred_rates else 0)
+    
+    return {
+        "current_rate": prediction["current_rate"],
+        "trend": prediction["trend"],
+        "slope": prediction["slope"],
+        "steps": list(range(1, steps + 1)),
+        "predicted_rates": pred_rates,
+        "unit": "tasks/minute"
+    }
+
+
+@api_v1.post("/reset_stats")
+def reset_task_statistics():
+    """重置任务统计"""
+    from backend.simulator import reset_task_stats as reset_stats
+    
+    reset_stats()
+    return {"message": "任务统计已重置", "reset_time": datetime.now().isoformat()}
+
+@api_v1.post("/experiments")
+def create_experiment_v1(payload: ExperimentCreate):
+    return db.create_experiment(payload.experiment_name)
+
+
+@api_v1.post("/experiments/{experiment_id}/start")
+def start_experiment_v1(experiment_id: int):
+    return db.start_experiment(experiment_id)
+
+
+@api_v1.post("/experiments/{experiment_id}/stop")
+def stop_experiment_v1(experiment_id: int):
+    return db.stop_experiment(experiment_id)
+
+
+@api_v1.get("/experiments")
+def list_experiments_v1():
+    return {"experiments": db.list_experiments()}
+
+
+@api_v1.get("/experiments/{experiment_id}")
+def get_experiment_v1(experiment_id: int):
+    try:
+        return db.get_experiment(experiment_id)
+    except KeyError as e:
+        return {"error": str(e)}
+
+
+@api_v1.get("/experiments/{experiment_id}/history/nodes")
+def get_experiment_nodes_history_v1(experiment_id: int, limit: int = 500, offset: int = 0):
+    try:
+        return db.get_nodes_history(experiment_id, limit=limit, offset=offset)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@api_v1.get("/experiments/export/last")
+def download_last_experiment_export():
+    """与 `python scripts/export_last_experiment.py` 同源：下载最近一次已完成实验的 JSON。"""
+    try:
+        data = build_last_experiment_export_dict(DB_PATH)
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"error": str(e)})
+    raw = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+    fname = suggested_export_filename(data, "json")
+    return StreamingResponse(
+        io.BytesIO(raw),
+        media_type="application/json; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{fname}"',
+        },
+    )
+
+
+# ---- 兼容旧路径：供静态前端直接访问（不带 /api/v1 前缀） ----
+
+
+@app.get("/nodes")
+def get_all_nodes():
+    return get_all_nodes_v1()
+
+
+@app.get("/tasks")
+def get_all_tasks():
+    return get_all_tasks_v1()
+
+
+@app.post("/task")
+def create_new_task(cpu_need: float):
+    return create_new_task_v1(cpu_need)
+
+
 @app.post("/schedule")
 def trigger_schedule(strategy: str = "least_load"):
-    return execute_schedule(strategy)
+    return trigger_schedule_v1(strategy)
 
 
 @app.get("/predict")
 def predict_load(steps: int = 10):
-    """LSTM 负载预测，steps 为预测步数，默认 10"""
+    """兼容旧路径：保留 /predict，不影响现有前端联调。"""
     return get_predictions(steps=steps)
 
 
+async def _ws_nodes_session(websocket: WebSocket) -> None:
+    """保持长连接并接收任意客户端帧。"""
+    await ws_manager.connect(websocket)
+    try:
+        while True:
+            msg = await websocket.receive()
+            if msg["type"] == "websocket.disconnect":
+                break
+    except WebSocketDisconnect:
+        pass
+    finally:
+        ws_manager.disconnect(websocket)
+
+
+@api_v1.websocket("/ws/nodes")
+async def ws_nodes(websocket: WebSocket):
+    await _ws_nodes_session(websocket)
+
+
+@app.websocket("/ws/nodes")
+async def ws_nodes_root_alias(websocket: WebSocket):
+    """兼容联调常用路径 ws://host:8000/ws/nodes（带前缀的完整路径为 /api/v1/ws/nodes）。"""
+    await _ws_nodes_session(websocket)
+
+
 @app.websocket("/ws/dashboard")
-async def websocket_dashboard(websocket: WebSocket):
-    """订阅后由后台统一每 2s 广播；连接建立时立即推送一帧。"""
+async def ws_dashboard(websocket: WebSocket):
+    """dashboard 专用：统一每 2s 广播一次（含真实历史 + 预测序列）。"""
     await websocket.accept()
     _dashboard_ws_clients.append(websocket)
     try:
         try:
-            await websocket.send_json(_build_ws_payload())
+            await websocket.send_json(_build_dashboard_payload())
         except Exception:
             pass
         while True:
@@ -152,28 +761,15 @@ async def websocket_dashboard(websocket: WebSocket):
         if websocket in _dashboard_ws_clients:
             _dashboard_ws_clients.remove(websocket)
 
-# 在 main.py 中添加这个路由（放在其他路由旁边）
 
-@app.post("/reset")
-def reset_system():
-    """重置系统状态"""
-    from backend.models import nodes, tasks, task_counter
-    from algorithms.predictor import clear_node_history
-    
-    # 重置节点
-    nodes.clear()
-    nodes.append({"id": 1, "name": "Edge-Node-01", "cpu": 10.0, "mem": 20.0, "status": "online"})
-    nodes.append({"id": 2, "name": "Edge-Node-02", "cpu": 40.0, "mem": 50.0, "status": "online"})
-    nodes.append({"id": 3, "name": "Edge-Node-03", "cpu": 85.0, "mem": 70.0, "status": "online"})
-    
-    # 重置任务
-    tasks.clear()
-    task_counter["current"] = 1
-    
-    # 清空预测历史
-    clear_node_history()
-    
-    return {"message": "系统已重置"}
+app.include_router(api_v1)
+
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(
+        app,
+        host="127.0.0.1",
+        port=8000,
+        ws_ping_interval=20.0,
+        ws_ping_timeout=20.0,
+    )

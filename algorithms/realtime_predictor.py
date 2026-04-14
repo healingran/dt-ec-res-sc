@@ -1,4 +1,13 @@
-# algorithms/realtime_predictor.py
+"""
+Realtime predictor extracted from `origin/wangjin_lstm:algorithms/predictor.py`,
+but refactored to:
+- avoid joblib dependency (uses stdlib pickle)
+- avoid side-effect prints on import
+- expose a small, testable API
+
+This module is SAFE to import from your existing code without modifying routes/websockets.
+"""
+
 from __future__ import annotations
 
 import os
@@ -25,6 +34,7 @@ class LSTMPredictor(nn.Module):
 
 def _load_pickle(path: str):
     import pickle
+
     with open(path, "rb") as f:
         return pickle.load(f)
 
@@ -32,7 +42,7 @@ def _load_pickle(path: str):
 @dataclass
 class PredictorAssets:
     model: LSTMPredictor
-    scaler: Optional[object]
+    scaler: Optional[object]  # typically sklearn MinMaxScaler
     window_size: int = 30
 
 
@@ -44,14 +54,19 @@ class RealtimePredictor:
         scaler_path: str = "algorithms/model_save/scaler.pkl",
         window_size: int = 30,
         history_maxlen: int = 200,
+        tracked_node_id: int = 1,
     ) -> None:
         self.model_path = model_path
         self.scaler_path = scaler_path
         self.window_size = int(window_size)
+        self.tracked_node_id = int(tracked_node_id)
         self._history: Deque[float] = deque(maxlen=int(history_maxlen))
         self._assets: Optional[PredictorAssets] = None
 
-    def update(self, cpu_value: float) -> None:
+    def update(self, cpu_value: float, *, node_id: int | None = None) -> None:
+        """只写入指定节点（默认 tracked_node_id）的 CPU，避免多节点序列交叉污染。"""
+        if node_id is None or int(node_id) != self.tracked_node_id:
+            return
         self._history.append(float(cpu_value))
 
     def clear(self) -> None:
@@ -69,6 +84,7 @@ class RealtimePredictor:
             model.load_state_dict(state)
             model.eval()
         else:
+            # allow running without trained weights; outputs will be arbitrary but code paths work
             model.eval()
 
         if os.path.exists(self.scaler_path):
@@ -98,7 +114,7 @@ class RealtimePredictor:
         preds = []
         with torch.no_grad():
             for _ in range(int(steps)):
-                pred = assets.model(current_seq)
+                pred = assets.model(current_seq)  # (1, 1)
                 preds.append(float(pred.item()))
                 current_seq = torch.cat((current_seq[:, 1:, :], pred.view(1, 1, 1)), dim=1)
 
@@ -113,6 +129,10 @@ class RealtimePredictor:
 
 
 def default_predictor() -> RealtimePredictor:
+    """
+    Process-local singleton predictor.
+    Both simulator and scheduler can import this to share one history buffer.
+    """
     global _DEFAULT_PREDICTOR
     if _DEFAULT_PREDICTOR is None:
         _DEFAULT_PREDICTOR = RealtimePredictor()
@@ -120,3 +140,4 @@ def default_predictor() -> RealtimePredictor:
 
 
 _DEFAULT_PREDICTOR: Optional[RealtimePredictor] = None
+

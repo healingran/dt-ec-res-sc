@@ -126,6 +126,25 @@ def init_db(path: str = DB_PATH) -> None:
     cur.execute("CREATE INDEX IF NOT EXISTS idx_nodes_node_name ON nodes(node_name)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_nodes_timestamp ON nodes(timestamp)")
 
+    # 任务事件历史（与 backend.tasks_history 一致）
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS tasks_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            node_name TEXT,
+            timestamp REAL NOT NULL
+        )
+        """
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tasks_history_task_id ON tasks_history(task_id)"
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tasks_history_ts ON tasks_history(timestamp)"
+    )
+
     conn.commit()
     conn.close()
 
