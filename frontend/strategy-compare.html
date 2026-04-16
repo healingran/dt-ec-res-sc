@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>策略对比 - 边缘计算调度</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', 'Roboto', sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            margin: 0;
+            padding: 24px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #a5f3fc, #c084fc);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            margin: 0;
+        }
+        button {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        button:hover {
+            background: #2563eb;
+            transform: scale(1.02);
+        }
+        .status {
+            background: #1e293b;
+            border-radius: 40px;
+            padding: 6px 14px;
+            font-size: 13px;
+            font-family: monospace;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #1e293b;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-bottom: 32px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        th, td {
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }
+        th {
+            background: #0f172a;
+            font-weight: 600;
+            color: #94a3b8;
+            letter-spacing: 0.5px;
+        }
+        tr:hover {
+            background: #334155;
+        }
+        .chart-card {
+            background: #1e293b;
+            border-radius: 20px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .chart-title {
+            font-size: 1.2rem;
+            margin-bottom: 16px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #queueChart {
+            width: 100%;
+            height: 400px;
+        }
+        .badge {
+            background: #3b82f6;
+            border-radius: 30px;
+            padding: 2px 8px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-style: italic;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📊 调度策略性能对比</h1>
+        <div style="display: flex; gap: 12px;">
+            <span class="status" id="apiStatus">🔌 后端待检测</span>
+            <button id="refreshBtn">🔄 刷新数据</button>
+            <button id="runBatchBtn">⚡ 一键跑批</button>
+        </div>
+    </div>
+
+    <div id="kpiSection">
+        <div class="loading">加载实验中...</div>
+    </div>
+
+    <div class="chart-card">
+        <div class="chart-title">
+            <span>📈 队列长度变化趋势（反映拥堵程度）</span>
+            <span class="badge">队列越短 → 调度越优</span>
+        </div>
+        <div id="queueChart"></div>
+        <p style="font-size:12px; color:#94a3b8; margin-top:12px;">* 队列长度是节点等待任务数，峰值越低说明调度更均衡，超时风险更小。</p>
+    </div>
+</div>
+
+<script>
+    const API_BASE = 'http://127.0.0.1:8000/api/v1';
+    let experimentsList = [];      // 存储所有实验元数据
+    let chartInstance = null;
+
+    // ---------- 辅助函数 ----------
+    async function fetchAPI(url, options = {}) {
+        const res = await fetch(url, {
+            ...options,
+            headers: { 'Accept': 'application/json', ...options.headers }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+    }
+
+    // 获取所有实验
+    async function fetchExperiments() {
+        const data = await fetchAPI(`${API_BASE}/experiments`);
+        return data.experiments || [];   // 假设返回 { experiments: [...] }
+    }
+
+    // 获取单个实验的节点历史快照
+    async function fetchExperimentHistory(expId, limit = 500) {
+        const data = await fetchAPI(`${API_BASE}/experiments/${expId}/history/nodes?limit=${limit}`);
+        return data.nodes || [];   // 假设返回 { nodes: [...] }
+    }
+
+    // 从历史快照计算 KPI：平均CPU、队列峰值、平均队列、在线率等
+    function computeKPIFromHistory(nodesHistory) {
+        if (!nodesHistory.length) return { avgCpu: 0, maxQueue: 0, avgQueue: 0, onlineRate: 0 };
+        let totalCpu = 0, totalQueue = 0, maxQueue = 0, onlineCount = 0;
+        for (const snap of nodesHistory) {
+            totalCpu += snap.cpu || 0;
+            const q = snap.queue_len || 0;
+            totalQueue += q;
+            if (q > maxQueue) maxQueue = q;
+            if (snap.status === 'online') onlineCount++;
+        }
+        const count = nodesHistory.length;
+        return {
+            avgCpu: totalCpu / count,
+            maxQueue: maxQueue,
+            avgQueue: totalQueue / count,
+            onlineRate: onlineCount / count
+        };
+    }
+
+    // 为每个实验计算 KPI 并返回增强后的列表
+    async function enrichExperimentsWithKPI(experiments) {
+        const enriched = [];
+        for (const exp of experiments) {
+            try {
+                const history = await fetchExperimentHistory(exp.id);
+                const kpi = computeKPIFromHistory(history);
+                enriched.push({
+                    ...exp,
+                    kpi,
+                    historyNodes: history   // 保留用于绘图
+                });
+            } catch (err) {
+                console.warn(`实验 ${exp.id} 历史获取失败`, err);
+                enriched.push({
+                    ...exp,
+                    kpi: { avgCpu: 0, maxQueue: 0, avgQueue: 0, onlineRate: 0 },
+                    historyNodes: []
+                });
+            }
+        }
+        return enriched;
+    }
+
+    // 渲染 KPI 表格
+    function renderKpiTable(experiments) {
+        const container = document.getElementById('kpiSection');
+        if (!experiments.length) {
+            container.innerHTML = '<div class="loading">暂无实验数据，请先运行一键跑批或手动创建实验</div>';
+            return;
+        }
+
+        const html = `
+            <table>
+                <thead>
+                    <tr><th>实验名称</th><th>策略 (推测)</th><th>平均 CPU (%)</th><th>队列峰值</th><th>平均队列长度</th><th>节点在线率</th></tr>
+                </thead>
+                <tbody>
+                    ${experiments.map(exp => {
+                        // 从实验名称或描述中提取策略（如果实验名称包含策略关键词）
+                        let strategy = 'unknown';
+                        if (exp.experiment_name) {
+                            const name = exp.experiment_name.toLowerCase();
+                            if (name.includes('least_load')) strategy = 'least_load';
+                            else if (name.includes('round_robin')) strategy = 'round_robin';
+                            else if (name.includes('shortest_queue')) strategy = 'shortest_queue';
+                            else if (name.includes('predict')) strategy = 'predict_least_load';
+                            else if (name.includes('random')) strategy = 'random';
+                        }
+                        return `<tr>
+                            <td><strong>${exp.experiment_name || `实验${exp.id}`}</strong></td>
+                            <td><span class="badge">${strategy}</span></td>
+                            <td>${exp.kpi.avgCpu.toFixed(1)}%</td>
+                            <td>${exp.kpi.maxQueue}</td>
+                            <td>${exp.kpi.avgQueue.toFixed(1)}</td>
+                            <td>${(exp.kpi.onlineRate * 100).toFixed(0)}%</td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        `;
+        container.innerHTML = html;
+    }
+
+    // 绘制队列长度随时间变化的曲线（按实验分组，取所有节点的平均队列）
+    function renderQueueChart(experiments) {
+        if (!chartInstance) {
+            const dom = document.getElementById('queueChart');
+            chartInstance = echarts.init(dom);
+        }
+
+        // 每个实验生成一条曲线：按时间排序的队列平均值
+        const series = [];
+        const legendData = [];
+
+        for (const exp of experiments) {
+            const history = exp.historyNodes;
+            if (!history.length) continue;
+
+            // 按时间戳排序
+            const sorted = [...history].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+            const times = sorted.map(s => {
+                const d = new Date(s.timestamp);
+                return `${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`;
+            });
+            // 计算每个时间点所有节点的平均队列（如果同一时间有多个节点，取平均）
+            const queueMap = new Map();
+            for (const snap of sorted) {
+                const t = snap.timestamp;
+                if (!queueMap.has(t)) queueMap.set(t, { sum: 0, count: 0 });
+                const entry = queueMap.get(t);
+                entry.sum += (snap.queue_len || 0);
+                entry.count += 1;
+            }
+            const avgQueues = Array.from(queueMap.values()).map(v => v.sum / v.count);
+            // 去重后的时间标签
+            const uniqueTimes = Array.from(queueMap.keys()).sort().map(t => {
+                const d = new Date(t);
+                return `${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`;
+            });
+
+            let strategyName = exp.experiment_name || `实验${exp.id}`;
+            if (strategyName.length > 20) strategyName = strategyName.slice(0,18)+'...';
+            legendData.push(strategyName);
+            series.push({
+                name: strategyName,
+                type: 'line',
+                data: avgQueues,
+                smooth: true,
+                lineStyle: { width: 2 },
+                symbol: 'circle',
+                symbolSize: 6
+            });
+        }
+
+        const option = {
+            title: { show: false },
+            tooltip: { trigger: 'axis' },
+            legend: { data: legendData, textStyle: { color: '#cbd5e1' }, top: 0 },
+            grid: { top: 50, left: 60, right: 40, bottom: 30, containLabel: true },
+            xAxis: {
+                type: 'category',
+                name: '时间',
+                axisLabel: { rotate: 30, color: '#94a3b8' }
+            },
+            yAxis: {
+                type: 'value',
+                name: '平均队列长度',
+                nameTextStyle: { color: '#94a3b8' },
+                axisLabel: { color: '#94a3b8' },
+                splitLine: { lineStyle: { color: '#334155' } }
+            },
+            series: series
+        };
+        chartInstance.setOption(option, true);
+    }
+
+    // 刷新所有数据
+    async function refreshData() {
+        const statusSpan = document.getElementById('apiStatus');
+        statusSpan.textContent = '⏳ 加载中...';
+        try {
+            const experiments = await fetchExperiments();
+            if (!experiments.length) {
+                document.getElementById('kpiSection').innerHTML = '<div class="loading">暂无实验数据，请点击“一键跑批”创建实验</div>';
+                statusSpan.textContent = '⚠️ 无实验数据';
+                if (chartInstance) chartInstance.clear();
+                return;
+            }
+            const enriched = await enrichExperimentsWithKPI(experiments);
+            experimentsList = enriched;
+            renderKpiTable(enriched);
+            renderQueueChart(enriched);
+            statusSpan.textContent = `✅ 已加载 ${enriched.length} 个实验`;
+        } catch (err) {
+            console.error(err);
+            statusSpan.textContent = '❌ 后端连接失败';
+            document.getElementById('kpiSection').innerHTML = '<div class="loading">无法连接后端，请检查服务是否启动</div>';
+        }
+    }
+
+    // 一键跑批：创建不同策略的实验，依次运行，最后刷新
+    async function runBatch() {
+        const btn = document.getElementById('runBatchBtn');
+        btn.disabled = true;
+        btn.textContent = '⏳ 跑批中...';
+        const statusSpan = document.getElementById('apiStatus');
+        statusSpan.textContent = '🏭 正在创建实验...';
+
+        const strategies = ['least_load', 'round_robin', 'shortest_queue'];
+        const createdIds = [];
+
+        try {
+            for (const strategy of strategies) {
+                const expName = `auto_${strategy}_${Date.now()}`;
+                // 1. 创建实验
+                const createRes = await fetchAPI(`${API_BASE}/experiments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ experiment_name: expName })
+                });
+                const expId = createRes.id;
+                if (!expId) throw new Error('创建实验失败');
+                // 2. 开始实验
+                await fetchAPI(`${API_BASE}/experiments/${expId}/start`, { method: 'POST' });
+                
+                // 3. 在实验期间创建任务并调度，产生队列
+                const taskCount = 8;  // 创建8个任务
+                for (let i = 0; i < taskCount; i++) {
+                    const cpuNeed = (Math.random() * 10 + 1).toFixed(1); // 1~11
+                    // 创建任务
+                    await fetchAPI(`${API_BASE}/task?cpu_need=${cpuNeed}`, { method: 'POST' });
+                    // 调度任务（使用当前实验的策略）
+                    await fetchAPI(`${API_BASE}/schedule?strategy=${strategy}`, { method: 'POST' });
+                    // 短暂间隔，让后端处理
+                    await new Promise(r => setTimeout(r, 500));
+                }
+                
+                // 4. 等待一段时间让队列稳定（可选）
+                await new Promise(r => setTimeout(r, 3000));
+                // 5. 停止实验
+                await fetchAPI(`${API_BASE}/experiments/${expId}/stop`, { method: 'POST' });
+                createdIds.push(expId);
+                statusSpan.textContent = `✅ 完成 ${strategy}`;
+            }
+            statusSpan.textContent = `🎉 跑批完成，共创建 ${createdIds.length} 个实验`;
+            await refreshData();
+        } catch (err) {
+            console.error(err);
+            statusSpan.textContent = '❌ 跑批失败，请检查后端日志';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '⚡ 一键跑批';
+        }
+    }
+    
+    // 页面加载时自动刷新
+    window.addEventListener('load', () => {
+        refreshData();
+        document.getElementById('refreshBtn').onclick = refreshData;
+        document.getElementById('runBatchBtn').onclick = runBatch;
+    });
+</script>
+</body>
+</html>

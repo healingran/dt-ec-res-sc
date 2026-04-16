@@ -11,6 +11,7 @@ function setStatus(ok, text) {
 }
 
 const visualizer = new CityVisualizer('scene3d');
+window.city = visualizer;
 
 // 设置默认视角为全局视角
 visualizer.setView('global');   // ← 添加这一行
