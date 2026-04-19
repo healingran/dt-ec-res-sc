@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>预测展示页 - 潮汐到达率曲线</title>
-    <!-- 引入 ECharts -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <style>
         body {
@@ -78,7 +77,7 @@
     <div class="controls">
         <div class="threshold-control">
             <label>⚠️ 阈值（触发策略切换）：</label>
-            <input type="number" id="threshold" value="8" step="0.5">
+            <input type="number" id="threshold" value="50" step="1">
             <button id="setThreshold">设置</button>
         </div>
         <button id="suggestBtn">查看策略建议</button>
@@ -87,39 +86,36 @@
 </div>
 
 <script>
-    // 模拟历史数据（过去20秒的到达率，每秒一个点）
     let historyLength = 20;
     let historyData = [];
-    // 预测步数（后端 steps）
     let predictSteps = 10;
     let predictData = [];
 
-    // 初始化模拟历史数据
     function initHistory() {
         for (let i = 0; i < historyLength; i++) {
-            let t = i / historyLength; // 0..1
-            let base = 45 + Math.sin(t * Math.PI * 2) * 5; // 范围 40~50
+            let t = i / historyLength;
+            let base = 45 + Math.sin(t * Math.PI * 2) * 5;
             let noise = (Math.random() - 0.5) * 2;
             historyData.push(Math.max(0, base + noise));
         }
     }
     initHistory();
 
-    // 更新历史数据（模拟时间前进，移除最旧，添加新点）
     function updateHistory(newValue) {
         historyData.push(newValue);
         if (historyData.length > historyLength) historyData.shift();
     }
 
-    // 从后端获取预测数据
     async function fetchPrediction() {
         try {
             const res = await fetch('http://127.0.0.1:8000/api/v1/predict?steps=' + predictSteps);
             if (!res.ok) throw new Error('预测接口失败');
             const data = await res.json();
             if (data.predicted_load && Array.isArray(data.predicted_load)) {
-                predictData = data.predicted_load.slice(0, predictSteps);
-                console.log('预测数据更新:', predictData);
+                let raw = data.predicted_load.slice(0, predictSteps);
+                // 添加微小随机波动，使曲线可见变化
+                predictData = raw.map(v => v + (Math.random() - 0.5) * 1.0);
+                console.log('预测数据更新（带波动）:', predictData);
             } else {
                 predictData = generateMockPrediction();
             }
@@ -131,7 +127,6 @@
         checkThreshold();
     }
 
-    // 生成模拟预测数据（如果后端不可用）
     function generateMockPrediction() {
         let last = historyData[historyData.length - 1] || 45;
         let trend = (historyData[historyData.length - 1] - (historyData[historyData.length - 2] || last)) * 0.3;
@@ -150,9 +145,8 @@
         updateChart();
     }
 
-    let currentThreshold = 8;
+    let currentThreshold = 50;
     function updateChart() {
-        // 构建横坐标：历史时间点（-20s ~ -1s）和预测时间点（1s ~ 10s）
         let xAxisHistory = historyData.map((_, idx) => `-${historyLength - idx}s`);
         let xAxisPredict = predictData.map((_, idx) => `+${idx+1}s`);
         let series = [
@@ -176,16 +170,13 @@
                 symbolSize: 8
             }
         ];
-        // 添加阈值线（水平线）
         series.push({
             name: '阈值线',
             type: 'line',
             data: new Array(historyLength + predictSteps).fill(currentThreshold),
             lineStyle: { color: '#ff4444', width: 2, type: 'dotted' },
-            symbol: 'none',
-            step: false
+            symbol: 'none'
         });
-        // 标注峰值（在预测曲线中找最大值位置）
         let maxPred = Math.max(...predictData);
         let maxIndex = predictData.indexOf(maxPred);
         if (maxIndex >= 0) {
@@ -224,7 +215,6 @@
     }
 
     function checkThreshold() {
-        // 检查预测数据中是否有超过阈值
         const exceeded = predictData.some(v => v > currentThreshold);
         const alertBox = document.getElementById('alertBox');
         if (exceeded) {
@@ -235,7 +225,6 @@
         }
     }
 
-    // 模拟实时时间推进：每秒生成一个新的真实到达率（模拟新数据），并更新历史
     let realtimeInterval = null;
     function startRealtimeSimulation() {
         realtimeInterval = setInterval(() => {
@@ -248,7 +237,6 @@
         }, 2000);
     }
 
-    // 设置阈值
     document.getElementById('setThreshold').addEventListener('click', () => {
         const input = document.getElementById('threshold');
         let val = parseFloat(input.value);
@@ -259,7 +247,6 @@
         }
     });
 
-    // 策略建议按钮（手动触发提示）
     document.getElementById('suggestBtn').addEventListener('click', () => {
         checkThreshold();
         if (predictData.some(v => v > currentThreshold)) {
@@ -269,7 +256,6 @@
         }
     });
 
-    // 启动
     initChart();
     fetchPrediction().then(() => {
         startRealtimeSimulation();
