@@ -296,6 +296,8 @@ export class CityVisualizer {
         this.sunLight.position.set(sunX, sunY + 5, sunZ);
 
         const intensityFactor = Math.max(0, Math.sin(angleRad) * 1.2);
+        const nightFactor = 1 - intensityFactor;   // 添加这行
+
         this.sunLight.intensity = Math.min(1.5, intensityFactor * 1.5);
         this.ambientLight.intensity = 0.5 + intensityFactor * 0.7;
 
@@ -320,6 +322,7 @@ export class CityVisualizer {
             this.sunLight.color.setHex(0xffddbb);
         }
 
+        // 车辆自发光随夜晚变化（可选，如果不需要可注释）
         if (this.vehicles) {
             this.vehicles.forEach(vehicle => {
                 vehicle.mesh.traverse(child => {
