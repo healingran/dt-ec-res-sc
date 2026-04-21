@@ -1,5 +1,6 @@
 import { CityVisualizer } from '../three-demo/cityVisualizer.js';
 import { getApiBase, mapNodeId } from './nodeApi.js';
+import * as THREE from 'three';
 
 const echarts = window.echarts;
 
@@ -32,6 +33,14 @@ function showToast(msg, ms = 4000) {
 }
 
 const visualizer = new CityVisualizer('scene3d');
+// 为 dashboard 单独增加一个柔和的环境光，提升整体亮度
+const extraLight = new THREE.AmbientLight(0x404060, 0.4); // 强度可调
+visualizer.scene.add(extraLight);
+
+// 可选：再加一个从顶部照射的补光
+const fillLight = new THREE.PointLight(0xccaa88, 0.5);
+fillLight.position.set(0, 10, 0);
+visualizer.scene.add(fillLight);
 const chart = echarts.init(document.getElementById('chartCompare'));
 
 function buildCompareOption(real, predicted) {

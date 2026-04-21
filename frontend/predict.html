@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -262,4 +263,270 @@
     });
 </script>
 </body>
+=======
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>预测展示页 - 潮汐到达率曲线</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e2f;
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #chart {
+            width: 100%;
+            height: 500px;
+            background: #2a2a3a;
+            border-radius: 12px;
+            padding: 10px;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            justify-content: center;
+        }
+        .threshold-control {
+            background: #2a2a3a;
+            padding: 8px 16px;
+            border-radius: 24px;
+        }
+        .alert {
+            background: #ff4444;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-top: 20px;
+            display: none;
+        }
+        button {
+            background: #4c6ef5;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #3b5bdb;
+        }
+        input {
+            background: #3a3a4a;
+            border: 1px solid #5a5a6a;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            width: 80px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>📈 任务到达率预测 & 预警</h2>
+    <div id="chart"></div>
+    <div class="controls">
+        <div class="threshold-control">
+            <label>⚠️ 阈值（触发策略切换）：</label>
+            <input type="number" id="threshold" value="50" step="1">
+            <button id="setThreshold">设置</button>
+        </div>
+        <button id="suggestBtn">查看策略建议</button>
+    </div>
+    <div id="alertBox" class="alert"></div>
+</div>
+
+<script>
+    let historyLength = 20;
+    let historyData = [];
+    let predictSteps = 10;
+    let predictData = [];
+
+    function initHistory() {
+        for (let i = 0; i < historyLength; i++) {
+            let t = i / historyLength;
+            let base = 45 + Math.sin(t * Math.PI * 2) * 5;
+            let noise = (Math.random() - 0.5) * 2;
+            historyData.push(Math.max(0, base + noise));
+        }
+    }
+    initHistory();
+
+    function updateHistory(newValue) {
+        historyData.push(newValue);
+        if (historyData.length > historyLength) historyData.shift();
+    }
+
+    async function fetchPrediction() {
+        try {
+            const res = await fetch('http://127.0.0.1:8000/api/v1/predict?steps=' + predictSteps);
+            if (!res.ok) throw new Error('预测接口失败');
+            const data = await res.json();
+            if (data.predicted_load && Array.isArray(data.predicted_load)) {
+                let raw = data.predicted_load.slice(0, predictSteps);
+                // 添加微小随机波动，使曲线可见变化
+                predictData = raw.map(v => v + (Math.random() - 0.5) * 1.0);
+                console.log('预测数据更新（带波动）:', predictData);
+            } else {
+                predictData = generateMockPrediction();
+            }
+        } catch (err) {
+            console.warn('预测接口错误，使用模拟数据', err);
+            predictData = generateMockPrediction();
+        }
+        updateChart();
+        checkThreshold();
+    }
+
+    function generateMockPrediction() {
+        let last = historyData[historyData.length - 1] || 45;
+        let trend = (historyData[historyData.length - 1] - (historyData[historyData.length - 2] || last)) * 0.3;
+        let pred = [];
+        for (let i = 1; i <= predictSteps; i++) {
+            let value = last + trend * i + (Math.random() - 0.5) * 1.5;
+            pred.push(Math.min(60, Math.max(40, value)));
+        }
+        return pred;
+    }
+
+    let chart = null;
+    function initChart() {
+        const dom = document.getElementById('chart');
+        chart = echarts.init(dom);
+        updateChart();
+    }
+
+    let currentThreshold = 50;
+    function updateChart() {
+        let xAxisHistory = historyData.map((_, idx) => `-${historyLength - idx}s`);
+        let xAxisPredict = predictData.map((_, idx) => `+${idx+1}s`);
+        let series = [
+            {
+                name: '真实到达率',
+                type: 'line',
+                data: historyData,
+                smooth: true,
+                lineStyle: { color: '#4c6ef5', width: 3 },
+                symbol: 'circle',
+                symbolSize: 6,
+                areaStyle: { opacity: 0.1, color: '#4c6ef5' }
+            },
+            {
+                name: '预测到达率',
+                type: 'line',
+                data: predictData,
+                smooth: true,
+                lineStyle: { color: '#ff922b', width: 3, type: 'dashed' },
+                symbol: 'diamond',
+                symbolSize: 8
+            }
+        ];
+        series.push({
+            name: '阈值线',
+            type: 'line',
+            data: new Array(historyLength + predictSteps).fill(currentThreshold),
+            lineStyle: { color: '#ff4444', width: 2, type: 'dotted' },
+            symbol: 'none'
+        });
+        let maxPred = Math.max(...predictData);
+        let maxIndex = predictData.indexOf(maxPred);
+        if (maxIndex >= 0) {
+            series.push({
+                name: '预测峰值',
+                type: 'scatter',
+                data: [[historyLength + maxIndex, maxPred]],
+                symbol: 'circle',
+                symbolSize: 12,
+                itemStyle: { color: '#ffaa00' },
+                label: { show: true, formatter: `峰值: ${maxPred.toFixed(1)}`, position: 'top', color: '#ffaa00' }
+            });
+        }
+
+        const option = {
+            title: { text: '任务到达率趋势', left: 'center', textStyle: { color: '#eee' } },
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+            legend: { data: ['真实到达率', '预测到达率', '阈值线'], textStyle: { color: '#eee' }, top: 30 },
+            grid: { top: 80, bottom: 30, left: 60, right: 60, containLabel: true },
+            xAxis: {
+                type: 'category',
+                data: [...xAxisHistory, ...xAxisPredict],
+                axisLabel: { rotate: 45, color: '#ccc' },
+                axisLine: { lineStyle: { color: '#ccc' } }
+            },
+            yAxis: {
+                type: 'value',
+                name: '到达率 (任务/秒)',
+                nameTextStyle: { color: '#ccc' },
+                axisLabel: { color: '#ccc' },
+                splitLine: { lineStyle: { color: '#444' } }
+            },
+            series: series
+        };
+        chart.setOption(option, true);
+    }
+
+    function checkThreshold() {
+        const exceeded = predictData.some(v => v > currentThreshold);
+        const alertBox = document.getElementById('alertBox');
+        if (exceeded) {
+            alertBox.style.display = 'block';
+            alertBox.innerHTML = `⚠️ 预测未来 ${predictData.length} 秒内到达率将超过阈值 ${currentThreshold}！建议切换调度策略为 “sla_predict” 或预热节点。`;
+        } else {
+            alertBox.style.display = 'none';
+        }
+    }
+
+    let realtimeInterval = null;
+    function startRealtimeSimulation() {
+        realtimeInterval = setInterval(() => {
+            let lastReal = historyData[historyData.length - 1];
+            let trend = (predictData[0] - lastReal) * 0.2;
+            let newValue = lastReal + trend + (Math.random() - 0.5) * 1.5;
+            newValue = Math.min(60, Math.max(40, newValue));
+            updateHistory(newValue);
+            fetchPrediction();
+        }, 2000);
+    }
+
+    document.getElementById('setThreshold').addEventListener('click', () => {
+        const input = document.getElementById('threshold');
+        let val = parseFloat(input.value);
+        if (!isNaN(val)) {
+            currentThreshold = val;
+            updateChart();
+            checkThreshold();
+        }
+    });
+
+    document.getElementById('suggestBtn').addEventListener('click', () => {
+        checkThreshold();
+        if (predictData.some(v => v > currentThreshold)) {
+            alert('已超过阈值，建议立即切换调度策略为 sla_predict');
+        } else {
+            alert('当前预测未超过阈值，保持现有策略即可');
+        }
+    });
+
+    initChart();
+    fetchPrediction().then(() => {
+        startRealtimeSimulation();
+    });
+</script>
+</body>
+>>>>>>> Stashed changes
 </html>

@@ -177,8 +177,11 @@
     const moon = new THREE.Mesh(new THREE.SphereGeometry(0.8, 32, 32), moonMat);
     scene.add(moon);
 
+<<<<<<< Updated upstream
     // 路灯已删除
 
+=======
+>>>>>>> Stashed changes
     function updateDayNightCycle() {
         timeOfDay += cycleSpeed;
         if (timeOfDay >= 24) timeOfDay -= 24;
@@ -293,6 +296,10 @@
             scene.add(cityModel);
             statusDiv.textContent = '🏙️ 城市模型加载成功';
             addDevices();
+<<<<<<< Updated upstream
+=======
+            createVehicles(); // 直接创建立方体车辆
+>>>>>>> Stashed changes
         },
         (xhr) => { statusDiv.textContent = `🏙️ 加载中 ${Math.floor(xhr.loaded/xhr.total*100)}%`; },
         (error) => { console.error(error); statusDiv.textContent = '❌ 模型加载失败'; }
@@ -364,13 +371,18 @@
         });
     }
 
+<<<<<<< Updated upstream
     // ================= 车辆 glTF 替换 =================
+=======
+    // ================= 三辆立方体车辆（红/绿/蓝） =================
+>>>>>>> Stashed changes
     const routes = [
         { points: [new THREE.Vector3(-14.18,0.2,-13.23), new THREE.Vector3(-15.13,0.2,-0.31), new THREE.Vector3(-9.27,0.2,-0.14), new THREE.Vector3(-9.96,0.2,6.62), new THREE.Vector3(-15.77,0.2,6.35), new THREE.Vector3(-16.16,0.2,10.72)], color: 0xff3333, speed: 0.15 },
         { points: [new THREE.Vector3(6.49,0.2,-18.25), new THREE.Vector3(7.00,0.2,-7.74), new THREE.Vector3(1.24,0.2,-6.20), new THREE.Vector3(2.15,0.2,-1.97), new THREE.Vector3(19.11,0.2,-3.37)], color: 0x33ff33, speed: 0.15 },
         { points: [new THREE.Vector3(18.52,0.2,6.29), new THREE.Vector3(2.20,0.2,7.32), new THREE.Vector3(-1.79,0.2,7.43), new THREE.Vector3(-3.38,0.2,9.24), new THREE.Vector3(-3.59,0.2,14.60), new THREE.Vector3(-13.52,0.2,14.16)], color: 0x3399ff, speed: 0.15 }
     ];
     let vehicles = [];
+<<<<<<< Updated upstream
     let carModel = null;
 
     // 加载车辆 glTF
@@ -400,6 +412,15 @@
             car.position.copy(route.points[0]);
             car.castShadow = true;
             car.receiveShadow = true;
+=======
+
+    function createVehicles() {
+        routes.forEach(route => {
+            const car = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 1.2), new THREE.MeshStandardMaterial({ color: route.color, metalness:0.7, roughness:0.3 }));
+            car.castShadow = true;
+            car.receiveShadow = true;
+            car.position.copy(route.points[0]);
+>>>>>>> Stashed changes
             scene.add(car);
             vehicles.push({
                 mesh: car,
@@ -415,6 +436,7 @@
             const lineMat = new THREE.LineBasicMaterial({ color: route.color });
             scene.add(new THREE.Line(lineGeom, lineMat));
             route.points.forEach(p => {
+<<<<<<< Updated upstream
                 const m = new THREE.Mesh(new THREE.SphereGeometry(0.15,8,8), new THREE.MeshStandardMaterial({ color: route.color }));
                 m.position.copy(p);
                 scene.add(m);
@@ -447,6 +469,11 @@
                 const m = new THREE.Mesh(new THREE.SphereGeometry(0.15,8,8), new THREE.MeshStandardMaterial({ color: route.color }));
                 m.position.copy(p);
                 scene.add(m);
+=======
+                const marker = new THREE.Mesh(new THREE.SphereGeometry(0.15,8,8), new THREE.MeshStandardMaterial({ color: route.color }));
+                marker.position.copy(p);
+                scene.add(marker);
+>>>>>>> Stashed changes
             });
         });
     }
@@ -501,7 +528,11 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
+<<<<<<< Updated upstream
     console.log('初始化完成，昼夜循环已启用，路灯已移除，车辆使用 glTF 模型（若加载失败则使用立方体）');
+=======
+    console.log('初始化完成，昼夜循环已启用，车辆为红/绿/蓝立方体');
+>>>>>>> Stashed changes
 </script>
 </body>
 </html>
