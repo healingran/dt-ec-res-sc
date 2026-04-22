@@ -93,7 +93,7 @@ export class CityVisualizer {
 
     loadCityModel() {
         const loader = new GLTFLoader();
-        const modelPath = 'models/city/scene.gltf'; // 根据实际路径修改
+        const modelPath = '/models/city/scene.gltf'; // 绝对路径，避免相对路径与缓存干扰
         loader.load(modelPath,
             (gltf) => {
                 const cityModel = gltf.scene;

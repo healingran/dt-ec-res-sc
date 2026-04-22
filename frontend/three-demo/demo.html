@@ -43,8 +43,8 @@
     <script type="importmap">
         {
             "imports": {
-                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+                "three": "./node_modules/three/build/three.module.js",
+                "three/addons/": "./node_modules/three/examples/jsm/"
             }
         }
     </script>
@@ -95,7 +95,7 @@
 
         // --- 加载城市模型 ---
         const loader = new GLTFLoader();
-        const modelPath = 'models/city/scene.gltf'; // 请修改为实际路径
+        const modelPath = '/models/city/scene.gltf'; // 绝对路径，避免相对路径与缓存干扰
         loader.load(modelPath,
             (gltf) => {
                 const cityModel = gltf.scene;

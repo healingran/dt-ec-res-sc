@@ -41,9 +41,18 @@ visualizer.scene.add(extraLight);
 const fillLight = new THREE.PointLight(0xccaa88, 0.5);
 fillLight.position.set(0, 10, 0);
 visualizer.scene.add(fillLight);
-const chart = echarts.init(document.getElementById('chartCompare'));
+const chartEl = document.getElementById('chartCompare');
+const chart = echarts && chartEl
+    ? echarts.init(chartEl)
+    : {
+        setOption() {},
+        resize() {}
+    };
 
 function buildCompareOption(real, predicted) {
+    if (!echarts) {
+        return {};
+    }
     const lr = real.length;
     const lp = predicted.length;
     const total = lr + lp;
@@ -125,6 +134,10 @@ chart.setOption(
     buildCompareOption([], []),
     { notMerge: true }
 );
+
+if (!echarts) {
+    showToast('图表库加载失败：仅展示3D与实时连接状态');
+}
 
 function onDashboardPayload(payload) {
     const nodes = payload.nodes;

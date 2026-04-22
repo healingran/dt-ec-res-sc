@@ -89,7 +89,7 @@
                     </a>
                 </div>
 
-                <!-- 三个并排卡片：调度控制台、策略对比、预测展示 -->
+                <!-- 并排卡片：调度控制台、预测展示 -->
                 <div class="hero-triple-cta" role="group" aria-label="高级功能入口" style="margin-top: 20px;">
                     <a href="console.html" class="cta-card cta-card--console">
                         <span class="cta-card-icon" aria-hidden="true">
@@ -97,16 +97,6 @@
                         </span>
                         <span class="cta-card-title">调度与场景控制台</span>
                         <span class="cta-card-desc">场景与事故注入 · 任务与实验 · SLA 策略</span>
-                    </a>
-                    <a href="strategy-compare.html" class="cta-card cta-card--console">
-                        <span class="cta-card-icon" aria-hidden="true">
-                            <svg width="36" height="36" viewBox="0 0 48 48" fill="none">
-                                <path d="M12 20h24M12 28h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                <rect x="8" y="12" width="32" height="24" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                            </svg>
-                        </span>
-                        <span class="cta-card-title">策略对比分析</span>
-                        <span class="cta-card-desc">KPI 对比 · 队列趋势 · 一键跑批</span>
                     </a>
                     <a href="predict.html" class="cta-card cta-card--console">
                         <span class="cta-card-icon" aria-hidden="true">
@@ -240,14 +230,28 @@
 
 <footer class="site-footer">
     <div class="footer-inner">
-        <div class="footer-brand">
-            <span class="footer-logo" aria-hidden="true"></span>
-            <div>
-                <strong>V2X-Twin</strong>
-                <span class="footer-tagline">面向复杂交通的车路协同算力数字孪生调度平台</span>
-            </div>
+        <div class="footer-col">
+            <h3 class="footer-title">快速链接</h3>
+            <ul class="footer-list">
+                <li><a href="#" onclick="showPage('home'); return false;">平台首页</a></li>
+                <li><a href="#" onclick="showPage('scene'); return false;">应用场景</a></li>
+                <li><a href="#" onclick="showPage('tech'); return false;">技术原理</a></li>
+                <li><a href="#" onclick="showPage('data'); return false;">数据展示</a></li>
+            </ul>
         </div>
-        <p class="footer-copy">智能网联专项 · 仿真演示原型：车路协同边缘算力建模、预测、调度与可观测验证</p>
+
+        <div class="footer-col">
+            <h3 class="footer-title">联系我们</h3>
+            <ul class="footer-list footer-list--contact">
+                <li>平台：V2X-Twin 车路协同算力孪生</li>
+                <li>邮箱：<a href="mailto:Lxinran323@bjfu.edu.cn">Lxinran323@bjfu.edu.cn</a></li>
+            </ul>
+        </div>
+
+    </div>
+
+    <div class="footer-bottom">
+        <p class="footer-copy">© 2026 V2X-Twin 团队 | 保留所有权利</p>
     </div>
 </footer>
 
