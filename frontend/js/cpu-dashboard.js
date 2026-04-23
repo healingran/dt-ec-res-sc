@@ -17,7 +17,7 @@ const lineChart = echarts.init(document.getElementById('lineChart'));
 const historyMap = {};
 
 const barOption = {
-    title: { text: 'CPU 当前负载', left: 'center' },
+    title: { text: '城市级边缘节点 CPU 当前负载', left: 'center' },
     tooltip: { trigger: 'axis' },
     grid: { left: '10%', right: '6%', bottom: '14%', top: '14%', containLabel: true },
     xAxis: { type: 'category', data: [], axisLabel: { rotate: 25 } },
@@ -26,7 +26,7 @@ const barOption = {
 };
 
 const lineOption = {
-    title: { text: '多节点 CPU 负载变化', left: 'center' },
+    title: { text: '城市级多节点 CPU 负载变化', left: 'center' },
     tooltip: { trigger: 'axis' },
     legend: { type: 'scroll', bottom: 0 },
     grid: { left: '8%', right: '6%', bottom: '18%', top: '14%', containLabel: true },
